@@ -14531,8 +14531,14 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
   status = xlocator_find_class_oid (thread_p, class_name, &class_oid, S_LOCK);
   if (status != LC_CLASSNAME_EXIST)
     {
+<<<<<<< HEAD
       error_code = ER_LC_UNKNOWN_CLASSNAME;
       goto exit;
+=======
+      fprintf (stderr, msgcat_message (MSGCAT_CATALOG_UTILS, MSGCAT_UTIL_SET_DIAGDB, DIAGDB_MSG_UNKNOWN_CLASS),
+	       class_name);
+      return;
+>>>>>>> 6fc34e227 (indent)
     }
 
   fprintf (fp, "\n*** DUMP HEAP OF %s ***\n", class_name);
