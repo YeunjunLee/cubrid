@@ -14532,6 +14532,7 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
   if (status != LC_CLASSNAME_EXIST)
     {
 <<<<<<< HEAD
+<<<<<<< HEAD
       error_code = ER_LC_UNKNOWN_CLASSNAME;
       goto exit;
 =======
@@ -14539,6 +14540,10 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
 	       class_name);
       return;
 >>>>>>> 6fc34e227 (indent)
+=======
+      er_set (ER_WARNING_SEVERITY, ARG_FILE_LINE, ER_LC_UNKNOWN_CLASSNAME, 1, class_name);
+      return ER_LC_UNKNOWN_CLASSNAME;
+>>>>>>> f427f7dce (return error code from heap_dump_heap_file)
     }
 
   fprintf (fp, "\n*** DUMP HEAP OF %s ***\n", class_name);
@@ -14546,8 +14551,12 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
   error_code = heap_hfid_cache_get (thread_p, &class_oid, &hfid, NULL, NULL);
   if (error_code != NO_ERROR)
     {
+<<<<<<< HEAD
       assert (false);
       goto exit;
+=======
+      return error_code;
+>>>>>>> f427f7dce (return error code from heap_dump_heap_file)
     }
 
   heap_dump (thread_p, fp, &hfid, dump_records);
@@ -14555,8 +14564,12 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
   error_code = heap_get_class_partitions (thread_p, &class_oid, &parts, &parts_count);
   if (error_code != NO_ERROR)
     {
+<<<<<<< HEAD
       assert (false);
       goto exit;
+=======
+      return error_code;
+>>>>>>> f427f7dce (return error code from heap_dump_heap_file)
     }
 
   for (int i = 1; i < parts_count; i++)
@@ -14565,9 +14578,13 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
     }
 
   heap_clear_partition_info (thread_p, parts, parts_count);
+<<<<<<< HEAD
 
 exit:
   return error_code;
+=======
+  return NO_ERROR;
+>>>>>>> f427f7dce (return error code from heap_dump_heap_file)
 }
 #endif
 
