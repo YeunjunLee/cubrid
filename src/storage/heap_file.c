@@ -14533,6 +14533,7 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
     {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
       error_code = ER_LC_UNKNOWN_CLASSNAME;
       goto exit;
 =======
@@ -14542,6 +14543,8 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
 >>>>>>> 6fc34e227 (indent)
 =======
       er_set (ER_WARNING_SEVERITY, ARG_FILE_LINE, ER_LC_UNKNOWN_CLASSNAME, 1, class_name);
+=======
+>>>>>>> 3a09d2c8d (shutdown db when heap_dump_heap_file exit abnormally)
       return ER_LC_UNKNOWN_CLASSNAME;
 >>>>>>> f427f7dce (return error code from heap_dump_heap_file)
     }
@@ -14552,9 +14555,13 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
   if (error_code != NO_ERROR)
     {
 <<<<<<< HEAD
+<<<<<<< HEAD
       assert (false);
       goto exit;
 =======
+=======
+      assert (false);
+>>>>>>> 3a09d2c8d (shutdown db when heap_dump_heap_file exit abnormally)
       return error_code;
 >>>>>>> f427f7dce (return error code from heap_dump_heap_file)
     }
@@ -14565,9 +14572,13 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
   if (error_code != NO_ERROR)
     {
 <<<<<<< HEAD
+<<<<<<< HEAD
       assert (false);
       goto exit;
 =======
+=======
+      assert (false);
+>>>>>>> 3a09d2c8d (shutdown db when heap_dump_heap_file exit abnormally)
       return error_code;
 >>>>>>> f427f7dce (return error code from heap_dump_heap_file)
     }
