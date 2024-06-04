@@ -14539,8 +14539,6 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
   error_code = heap_hfid_cache_get (thread_p, &class_oid, &hfid, NULL, NULL);
   if (error_code != NO_ERROR)
     {
-<<<<<<< HEAD
-<<<<<<< HEAD
       assert (false);
       goto exit;
     }
@@ -14550,8 +14548,6 @@ heap_dump_heap_file (THREAD_ENTRY * thread_p, FILE * fp, bool dump_records, cons
   error_code = heap_get_class_partitions (thread_p, &class_oid, &parts, &parts_count);
   if (error_code != NO_ERROR)
     {
-<<<<<<< HEAD
-<<<<<<< HEAD
       assert (false);
       goto exit;
     }
