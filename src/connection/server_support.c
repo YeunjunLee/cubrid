@@ -1387,7 +1387,7 @@ css_init (THREAD_ENTRY * thread_p, char *server_name, int name_length, int port_
       else
       {
         fprintf(stdout, "HA is disabled.\n");
-        status = css_register_to_master (css_Master_conn);
+        //status = css_register_to_master (css_Master_conn);
         fprintf(stdout, "register to master.\n");
         if (status != NO_ERROR)
         {
@@ -1485,15 +1485,19 @@ css_register_to_master (CSS_CONN_ENTRY * conn)
     er_log_debug (ARG_FILE_LINE, "failed to make proc register.\n");
     return (ER_FAILED);
   }
-  fprintf(stdout, "proc_register is not NULL.\n");
   if (!IS_INVALID_SOCKET (conn->fd))
     {
-      error = css_send_request (conn, REGISTER_SERVER, &request_id, NULL, 0);
+      error = css_send_server_register_request (conn);
       if (error != NO_ERRORS)
-	{
-          fprintf(stdout, "failed to send request.\n");
-	  goto error_return;
-	}
+      {
+        goto error_return;
+      }
+
+      error = css_send_server_register_data (conn, (char *) proc_register, size);
+      if (error != NO_ERRORS)
+      {
+        goto error_return;
+      }
     }
   free_and_init (proc_register);
   return (NO_ERROR);
@@ -1534,6 +1538,56 @@ css_make_set_proc_register ()
     }
   fprintf(stdout, "args is %s.\n", proc_register->args);
   return (proc_register);
+}
+
+/*
+ * css_send_server_register_request () -
+ *   return: css_error_code
+ *
+ *   conn(in):
+ */
+static int
+css_send_server_register_request (CSS_CONN_ENTRY * conn)
+{
+  int nbytes;
+  int request;
+
+  request = htonl (SERVER_REGISTER);
+  if (conn && !IS_INVALID_SOCKET (conn->fd))
+    {
+      nbytes = send (conn->fd, (char *) &request, sizeof (int), 0);
+      if (nbytes == sizeof (int))
+	{
+	  return (NO_ERRORS);
+	}
+      return (ERROR_ON_WRITE);
+    }
+  return CONNECTION_CLOSED;  
+}
+
+/*
+ * css_send_heartbeat_data () -
+ *   return: css_error_code
+ *
+ *   conn(in):
+ *   data(in):
+ *   size(in):
+ */
+static int
+css_send_server_register_data (CSS_CONN_ENTRY * conn, const char *data, int size)
+{
+  int nbytes;
+
+  if (conn && !IS_INVALID_SOCKET (conn->fd))
+    {
+      nbytes = send (conn->fd, (char *) data, size, 0);
+      if (nbytes == size)
+	{
+	  return (NO_ERRORS);
+	}
+      return (ERROR_ON_WRITE);
+    }
+  return CONNECTION_CLOSED;
 }
 
 /*

@@ -532,6 +532,7 @@ css_process_kill_slave (CSS_CONN_ENTRY * conn, unsigned short request_id, char *
 			    msgcat_message (MSGCAT_CATALOG_UTILS, MSGCAT_UTIL_SET_MASTER, MASTER_MSG_SERVER_STATUS),
 			    server_name, timeout);
 		  css_process_start_shutdown (temp, timeout * 60, buffer);
+                  master_Server_monitor->remove_server_entry_by_conn (temp->conn_ptr);
 		}
 	      snprintf (buffer, MASTER_TO_SRV_MSG_SIZE,
 			msgcat_message (MSGCAT_CATALOG_UTILS, MSGCAT_UTIL_SET_MASTER, MASTER_MSG_SERVER_NOTIFIED),
@@ -606,9 +607,22 @@ css_process_kill_immediate (CSS_CONN_ENTRY * conn, unsigned short request_id, ch
  *  proc_register(in) 
  */
 static void
-css_process_register_server (CSS_CONN_ENTRY * conn, unsigned short request_id, char* buffer)
+css_process_register_server (CSS_CONN_ENTRY * conn)
 {
+  int rv, buffer_size;
+  CSS_PROC_REGISTER *css_proc_register = NULL;
+  char buffer[HB_BUFFER_SZ];
+  char error_string[LINE_MAX] = "";
+
+  buffer_size = sizeof (CSS_PROC_REGISTER);
+
+  rv = css_receive_heartbeat_data (conn, buffer, buffer_size);
+  if (rv != NO_ERRORS)
+    {
+      return;
+    }
   CSS_PROC_REGISTER *proc_register = (CSS_PROC_REGISTER *) buffer;
+
   fprintf(stdout, "type converted \n");
   master_Server_monitor->make_and_insert_server_entry(proc_register->pid, proc_register->exec_path, proc_register->args, conn);
   fprintf(stdout, "Server registered: %d %s %s\n", proc_register->pid, proc_register->exec_path, proc_register->args);
@@ -735,6 +749,7 @@ css_process_shutdown (char *time_buffer)
 	  && !IS_MASTER_CONN_NAME_HA_COPYLOG (temp->name) && !IS_MASTER_CONN_NAME_HA_APPLYLOG (temp->name))
 	{
 	  css_process_start_shutdown (temp, timeout * 60, buffer);
+          master_Server_monitor->remove_server_entry_by_conn (temp->conn_ptr);
 
 	  /* wait process terminated */
 	  master_util_wait_proc_terminate (temp->pid);
@@ -1883,7 +1898,7 @@ css_process_info_request (CSS_CONN_ENTRY * conn)
   int request;
   unsigned short request_id;
   char *buffer = NULL;
-
+  fprintf(stdout, "CONN status : %d\n", conn->status);
   rc = css_receive_request (conn, &request_id, &request, &buffer_size);
   if (rc == NO_ERRORS)
     {
@@ -1945,7 +1960,7 @@ css_process_info_request (CSS_CONN_ENTRY * conn)
 	  if (buffer != NULL)
 	    {
               fprintf(stdout, "buffer is not null.\n");
-	      css_process_register_server (conn, request_id, buffer);
+	      //css_process_register_server (conn, request_id, buffer);
               fprintf(stdout, "register server done\n");
 	    }
 	  break;
@@ -2028,6 +2043,7 @@ css_process_info_request (CSS_CONN_ENTRY * conn)
     }
   else
     {
+      fprintf(stdout, "css_receive_request failed, error_code : %d\n", rc);
       css_cleanup_info_connection (conn);
     }
   if (buffer != NULL)

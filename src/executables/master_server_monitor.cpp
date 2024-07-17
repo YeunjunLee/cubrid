@@ -21,6 +21,7 @@
 //
 
 #include <sstream>
+#include <algorithm>
 
 #include "master_server_monitor.hpp"
 
@@ -66,6 +67,14 @@ server_monitor::make_and_insert_server_entry (int pid, const char *exec_path, ch
 {
   server_entry temp (pid, exec_path, args, conn);
   m_server_entry_list->push_back (temp);
+}
+
+void
+server_monitor::remove_server_entry_by_conn (CSS_CONN_ENTRY *conn)
+{
+  m_server_entry_list->erase (std::remove_if (m_server_entry_list->begin(), m_server_entry_list->end(),
+                                          [conn](server_entry &e) { return e.m_conn == conn; }),
+                          m_server_entry_list->end ());
 }
 
 server_monitor::server_entry::

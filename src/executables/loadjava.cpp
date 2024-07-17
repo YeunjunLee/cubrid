@@ -74,11 +74,10 @@ usage (void)
 static int
 parse_argument (int argc, char *argv[])
 {
-  int error = NO_ERROR;
   struct option loadjava_option[] =
   {
     {"overwrite", 0, 0, 'y'},
-    {"package", 1, 0, 'p'},
+    {"package", 0, 0, 'p'},
     {"jni", 0, 0, 'j'},
     {0, 0, 0, 0}
   };
@@ -100,12 +99,6 @@ parse_argument (int argc, char *argv[])
 	case 'p':
 	{
 	  // check valid package name
-	  if (optarg == NULL)
-	    {
-	      error = ER_FAILED;
-	      goto exit;
-	    }
-
 	  std::string package_name (optarg);
 	  if (!package_name.empty())
 	    {
@@ -127,8 +120,8 @@ parse_argument (int argc, char *argv[])
 	case 'h':
 	/* fall through */
 	default:
-	  error = ER_FAILED;
-	  goto exit;
+	  usage ();
+	  return ER_FAILED;
 	}
     }
 
@@ -139,19 +132,13 @@ parse_argument (int argc, char *argv[])
     }
   else
     {
-      error = ER_FAILED;
-      goto exit;
+      usage ();
+      return ER_FAILED;
     }
 
   Program_name = argv[0];
 
-exit:
-  if (error != NO_ERROR)
-    {
-      usage ();
-    }
-
-  return error;
+  return NO_ERROR;
 }
 
 static int

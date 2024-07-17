@@ -975,13 +975,14 @@ css_check_master_socket_input (int *count, fd_set * fd_var)
 		    }
 		  else
 		    {
+                      css_process_server_register_request (temp->conn_ptr);
 #if defined(DEBUG)
 		      if (css_Active_server_count > 0)
 			{
 			  css_Active_server_count--;
 			}
 #endif
-		      css_remove_entry_by_conn (temp->conn_ptr, &css_Master_socket_anchor);
+		      //css_remove_entry_by_conn (temp->conn_ptr, &css_Master_socket_anchor);
 		    }
 		}
 	      /* stop loop in case an error caused temp to be deleted */
