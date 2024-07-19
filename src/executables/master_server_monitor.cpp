@@ -21,8 +21,16 @@
 //
 
 #include <sstream>
-
+#include <sys/time.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <system_parameter.h>
+#include <master_request.h>
 #include "master_server_monitor.hpp"
+
+#define GET_ELAPSED_TIME(end_time, start_time) \
+            ((double)(end_time.tv_sec - start_time.tv_sec) * 1000 + \
+             (end_time.tv_usec - start_time.tv_usec)/1000.0)
 
 std::unique_ptr<server_monitor> master_Server_monitor = nullptr;
 
@@ -36,10 +44,69 @@ server_monitor::server_monitor ()
   {
     while (!m_thread_shutdown)
       {
-	// TODO: select server_entry whose m_need_revive value is true. (Will be implemented in CBRD-25438 issue.)
+	for (auto &entry : *m_server_entry_list)
+	  {
+	    if (!entry.m_need_revive)
+	      {
+		continue;
+	      }
+	    fprintf (stdout, "Server %s is dead. \n", entry.m_server_name.c_str());
+	    struct timeval tv;
+	    pid_t pid;
+	    gettimeofday (&tv, nullptr);
+	    if (GET_ELAPSED_TIME (entry.m_last_revive_time,
+				  tv) < prm_get_integer_value (PRM_ID_HA_UNACCEPTABLE_PROC_RESTART_TIMEDIFF_IN_MSECS))
+	      {
+		goto cleanup;
+	      }
+	    int tries = 0;
+	    int max_retries = prm_get_integer_value (PRM_ID_HA_MAX_PROCESS_START_CONFIRM);
+	    while (tries < max_retries)
+	      {
+		fprintf (stdout, "Server %s is now reviving. \n", entry.m_server_name.c_str());
+		pid = fork ();
+		if (pid < 0)
+		  {
+		    tries++;
+		    continue;
+		  }
+		  // Child process will execute the server with entry.m_argv and entry.m_exec_path. If it fails, remove the child process and try again with the next child process.
+                  else if (pid == 0)
+                    {
+                      char *argv[entry.m_argv.size () + 1];
+                      for (size_t i = 0; i < entry.m_argv.size (); i++)
+                        {
+                          argv[i] = const_cast<char *> (entry.m_argv[i].c_str ());
+                        }
+                      argv[entry.m_argv.size ()] = nullptr;
+                      execv (entry.m_exec_path.c_str (), argv);
+                    }
+                  else
+                    {
+                      // Parent process will wait for the child process to finish.
+                      int status;
+                      waitpid (pid, &status, 0);
+                      if (WIFEXITED (status) && WEXITSTATUS (status) == 0)
+                        {
+                          entry.m_pid = pid;
+                          entry.m_need_revive = false;
+                          gettimeofday (&entry.m_last_revive_time, NULL);
+                          fprintf (stdout, "Server %s is revived. \n", entry.m_server_name.c_str());
+                          break;
+                        }
+                      else
+                        {
+                          tries++;
+                          continue;
+                        }
+                    }
+	      }
+              cleanup:
+                m_server_entry_list->remove_server_entry_by_conn (entry.m_conn);
+                css_remove_entry_by_conn (entry.m_conn, &css_Master_socket_anchor);
+	  }
       }
   });
-
   fprintf (stdout, "server_monitor_thread is created. \n");
   fflush (stdout);
 }
@@ -72,6 +139,21 @@ server_entry (int pid, const char *server_name, const char *exec_path, char *arg
   if (args != nullptr)
     {
       proc_make_arg (args);
+    }
+}
+
+void
+server_monitor::find_set_entry_to_revive (CSS_CONN_ENTRY *conn)
+{
+  fprintf (stdout, "Server will be checked. \n");
+  for (auto &entry : *m_server_entry_list)
+    {
+      fprintf (stdout, "Server is being checked. \n");
+      if (entry.m_conn == conn)
+	{
+	  entry.m_need_revive = true;
+	  return;
+	}
     }
 }
 
