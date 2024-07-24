@@ -53,10 +53,8 @@ class server_monitor
 	std::vector<std::string> m_argv;              // arguments of server process
 	int m_pid;                              // process ID
 
-
       private:
 	void proc_make_arg (char *args);
-
 	
 	};
 
