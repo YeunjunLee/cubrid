@@ -298,6 +298,7 @@ static bool is_terminated_process (const int pid);
 static char *make_exec_abspath (char *buf, int buf_len, char *cmd);
 static const char *command_string (int command_type);
 static bool is_server_running (const char *type, const char *server_name, int pid);
+static int shutdown_revive_server (const char *server_name);
 static int is_broker_running (void);
 static int is_gateway_running (void);
 static UTIL_MANAGER_SERVER_STATUS_E is_manager_running (unsigned int sleep_time);
@@ -1605,6 +1606,24 @@ is_server_running (const char *type, const char *server_name, int pid)
 }
 
 /*
+ * shutdown_revive_server -
+ *
+ * return:
+ *
+ *      type(in):
+ *      server_name(in):
+ *      pid(in):
+ */
+static int
+shutdown_revive_server (const char *server_name)
+{
+  int status;
+
+  const char *args[] = { UTIL_COMMDB_NAME, COMMDB_SHUTDOWN_REVIVE_SERVER, server_name, NULL};
+  return proc_execute (UTIL_COMMDB_NAME, args, true, false, false, NULL);
+}
+
+/*
  * process_server -
  *
  * return:
@@ -1844,6 +1863,7 @@ process_server (int command_type, int argc, char **argv, bool show_usage, bool c
 	      status = ER_GENERIC_ERROR;
 	      print_message (stdout, MSGCAT_UTIL_GENERIC_NOT_RUNNING_2S, PRINT_SERVER_NAME, token);
 	      util_log_write_errid (MSGCAT_UTIL_GENERIC_NOT_RUNNING_2S, PRINT_SERVER_NAME, token);
+              shutdown_revive_server (token);
 	    }
 	}
       break;

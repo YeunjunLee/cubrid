@@ -45,6 +45,7 @@ class server_monitor
       UNREGISTER_SERVER = 1,
       REVIVE_SERVER = 2,
       CONFIRM_REVIVE_SERVER = 3,
+      SHUTDOWN_SERVER = 4,
       JOB_MAX
     };
 

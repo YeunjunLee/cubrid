@@ -607,6 +607,27 @@ css_process_kill_immediate (CSS_CONN_ENTRY * conn, unsigned short request_id, ch
 }
 
 /*
+ * css_process_shutdown_revive_server()
+ *   return: none
+ *   conn(in)
+ *   request_id(in)
+ *   server_name(in/out)
+ */
+static void
+css_process_shutdown_revive_server (CSS_CONN_ENTRY * conn, unsigned short request_id, char *server_name)
+{
+  #if !defined(WINDOWS)
+  if (auto_Restart_server)
+    {
+      /* *INDENT-OFF* */
+      master_Server_monitor->produce_job (server_monitor::job_type::SHUTDOWN_SERVER, -1, "", "", server_name);
+      /* *INDENT-ON* */
+      fprintf (stderr, "Server %s is scheduled to be shutdown\n", server_name);
+    }
+  #endif
+}
+
+/*
  * css_send_term_signal() - send a signal to the target process
  *   return: none
  *   pid(in)
@@ -1938,6 +1959,12 @@ css_process_info_request (CSS_CONN_ENTRY * conn)
 	      css_process_kill_immediate (conn, request_id, buffer);
 	    }
 	  break;
+        case SHUTDOWN_REVIVE_SERVER:
+          if (buffer != NULL)
+            {
+              css_process_shutdown_revive_server (conn, request_id, buffer);
+            }
+          break;
 	case GET_ALL_COUNT:
 	  css_process_all_count_info (conn, request_id);
 	  break;

@@ -956,6 +956,7 @@ typedef struct _ha_config
 #define COMMDB_HA_ADMIN_INFO              "--admin-info"
 #define COMMDB_VERBOSE_OUTPUT             "--verbose"
 #define COMMDB_HA_START_UTIL_PROCESS	  "-t"
+#define COMMDB_SHUTDOWN_REVIVE_SERVER     "--shutdown-revive-server"
 
 #define ACLDB_RELOAD            "-r"
 
@@ -1528,6 +1529,8 @@ typedef struct _ha_config
 #define COMMDB_HA_ADMIN_INFO_L                  "admin-info"
 #define COMMDB_HA_START_UTIL_PROCESS_S          't'
 #define COMMDB_HA_START_UTIL_PROCESS_L          "start-ha-util-process"
+#define COMMDB_SHUTDOWN_REVIVE_SERVER_S         12116
+#define COMMDB_SHUTDOWN_REVIVE_SERVER_L         "shutdown-revive-server"
 
 /* paramdump option list */
 #define PARAMDUMP_OUTPUT_FILE_S                 'o'
