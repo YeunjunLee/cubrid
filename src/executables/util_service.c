@@ -1619,7 +1619,7 @@ shutdown_revive_server (const char *server_name)
 {
   int status;
 
-  const char *args[] = { UTIL_COMMDB_NAME, COMMDB_SHUTDOWN_REVIVE_SERVER, server_name, NULL};
+  const char *args[] = { UTIL_COMMDB_NAME, COMMDB_SHUTDOWN_REVIVE_SERVER, server_name, NULL };
   return proc_execute (UTIL_COMMDB_NAME, args, true, false, false, NULL);
 }
 
@@ -1863,7 +1863,7 @@ process_server (int command_type, int argc, char **argv, bool show_usage, bool c
 	      status = ER_GENERIC_ERROR;
 	      print_message (stdout, MSGCAT_UTIL_GENERIC_NOT_RUNNING_2S, PRINT_SERVER_NAME, token);
 	      util_log_write_errid (MSGCAT_UTIL_GENERIC_NOT_RUNNING_2S, PRINT_SERVER_NAME, token);
-              shutdown_revive_server (token);
+	      shutdown_revive_server (token);
 	    }
 	}
       break;

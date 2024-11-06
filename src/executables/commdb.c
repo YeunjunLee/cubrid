@@ -1195,7 +1195,6 @@ process_batch_command (CSS_CONN_ENTRY * conn)
 
   if (commdb_Arg_shutdown_revive_server)
     {
-      fprintf(stdout, "commdb_Arg_shutdown_revive_server_name = %s\n", commdb_Arg_shutdown_revive_server_name);
       process_shutdown_revive_server (conn, (char *) commdb_Arg_shutdown_revive_server_name);
     }
 
@@ -1390,14 +1389,14 @@ main (int argc, char **argv)
 	  commdb_Arg_ha_util_process_args = strdup (optarg);
 	  commdb_Arg_ha_start_util_process = true;
 	  break;
-        case COMMDB_SHUTDOWN_REVIVE_SERVER_S:
-          commdb_Arg_shutdown_revive_server = true;
-          if (commdb_Arg_shutdown_revive_server_name != NULL)
-            {
-              free_and_init (commdb_Arg_shutdown_revive_server_name);
-            }
-          commdb_Arg_shutdown_revive_server_name = strdup (optarg);
-          break;
+	case COMMDB_SHUTDOWN_REVIVE_SERVER_S:
+	  commdb_Arg_shutdown_revive_server = true;
+	  if (commdb_Arg_shutdown_revive_server_name != NULL)
+	    {
+	      free_and_init (commdb_Arg_shutdown_revive_server_name);
+	    }
+	  commdb_Arg_shutdown_revive_server_name = strdup (optarg);
+	  break;
 	default:
 	  util_log_write_errid (MSGCAT_UTIL_GENERIC_INVALID_ARGUMENT);
 	  goto usage;
