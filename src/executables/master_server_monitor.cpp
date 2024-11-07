@@ -293,10 +293,20 @@ server_monitor::shutdown_server (const std::string &server_name)
 
   if (entry != m_server_entry_map.end ())
     {
-      entry->second.set_is_shutdown (true);
-      _er_log_debug (ARG_FILE_LINE,
-		     "[Server Monitor] [%s] Server is shutdown. Reviving the server will not be tried.",
-		     entry->first.c_str());
+      if (entry->second.get_need_revive ())
+	{
+	  entry->second.set_is_shutdown (true);
+	  _er_log_debug (ARG_FILE_LINE,
+			 "[Server Monitor] [%s] Server is shutdown. Reviving the server will not be tried.",
+			 entry->first.c_str());
+
+	}
+      else
+	{
+	  _er_log_debug (ARG_FILE_LINE,
+			 "[Server Monitor] [%s] Server is already revived. Server monitor will not try to shutdown server. (pid : %d)",
+			 entry->first.c_str(), entry->second.get_pid());
+	}
     }
 }
 
