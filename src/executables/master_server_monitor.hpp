@@ -131,7 +131,6 @@ class server_monitor
 	      m_last_revived_time = other.m_last_revived_time;
 	      m_exec_path = other.m_exec_path;
 	      m_argv = std::move (other.m_argv);
-	      m_is_shutdown = other.m_is_shutdown;
 	    }
 	  return *this;
 	}
@@ -140,13 +139,11 @@ class server_monitor
 	std::string get_exec_path () const;
 	char *const *get_argv () const;
 	bool get_need_revive () const;
-	bool get_is_shutdown () const;
 	std::chrono::steady_clock::time_point get_last_revived_time () const;
 
 	void set_pid (int pid);
 	void set_exec_path (const std::string &exec_path);
 	void set_need_revive (bool need_revive);
-	void set_is_shutdown (bool is_shutdown);
 	void set_last_revived_time (std::chrono::steady_clock::time_point revive_time);
 
 	void proc_make_arg (const std::string &args);
@@ -157,7 +154,6 @@ class server_monitor
 	std::unique_ptr<char *[]> m_argv;                             // arguments of server process
 	volatile bool m_need_revive;                                  // need to be revived by monitoring thread
 	std::chrono::steady_clock::time_point m_last_revived_time;    // last revived time
-	bool m_is_shutdown;                                           // flag to indicate server is shutdown
     };
 
     std::unordered_map <std::string, server_entry> m_server_entry_map;  // map of server entries

@@ -110,7 +110,6 @@ server_monitor::register_server_entry (int pid, const std::string &exec_path, co
     {
       entry->second.set_pid (pid);
       entry->second.set_need_revive (false);
-      entry->second.set_is_shutdown (false);
       entry->second.set_last_revived_time (std::chrono::steady_clock::now ());
       _er_log_debug (ARG_FILE_LINE,
 		     "[Server Monitor] [%s] Server entry has been registered. (pid : %d)",
@@ -155,13 +154,6 @@ server_monitor::revive_server (const std::string &server_name)
 
   if (entry != m_server_entry_map.end ())
     {
-      if (entry->second.get_is_shutdown ())
-	{
-	  _er_log_debug (ARG_FILE_LINE,
-			 "[Server Monitor] [%s] Server is already shutdown. Server monitor will not try to revive server.",
-			 entry->first.c_str());
-	  m_server_entry_map.erase (entry);
-	}
       entry->second.set_need_revive (true);
 
       tv = std::chrono::steady_clock::now ();
@@ -217,54 +209,46 @@ server_monitor::check_server_revived (const std::string &server_name)
 {
   int error_code;
   auto entry = m_server_entry_map.find (server_name);
-  assert (entry != m_server_entry_map.end ());
-
-  if (entry->second.get_is_shutdown ())
+  if (entry != m_server_entry_map.end ())
     {
-      _er_log_debug (ARG_FILE_LINE,
-		     "[Server Monitor] [%s] Server is already shutdown. Server monitor will not try to revive server.",
-		     entry->first.c_str());
-      m_server_entry_map.erase (entry);
-      return;
-    }
-
-  error_code = kill (entry->second.get_pid (), 0);
-  if (error_code)
-    {
-      if (errno == ESRCH)
+      error_code = kill (entry->second.get_pid (), 0);
+      if (error_code)
 	{
-	  _er_log_debug (ARG_FILE_LINE,
-			 "[Server Monitor] [%s] Revived server process can not be found. Server monitor will try to revive server again. (pid : %d)",
-			 entry->first.c_str(), entry->second.get_pid());
-	  produce_job_internal (job_type::REVIVE_SERVER, -1, "", "", entry->first);
+	  if (errno == ESRCH)
+	    {
+	      _er_log_debug (ARG_FILE_LINE,
+			     "[Server Monitor] [%s] Revived server process can not be found. Server monitor will try to revive server again. (pid : %d)",
+			     entry->first.c_str(), entry->second.get_pid());
+	      produce_job_internal (job_type::REVIVE_SERVER, -1, "", "", entry->first);
+	    }
+	  else
+	    {
+	      _er_log_debug (ARG_FILE_LINE,
+			     "[Server Monitor] [%s] Failed to revive server due to unknown error from kill() function. It will no longer be revived automatically. (pid : %d)",
+			     entry->first.c_str(), entry->second.get_pid());
+	      kill (entry->second.get_pid (), SIGKILL);
+	      m_server_entry_map.erase (entry);
+	    }
+	}
+      else if (entry->second.get_need_revive ())
+	{
+	  // Server revive confirm interval is set to be 1 second to avoid busy waiting.
+	  constexpr int SERVER_MONITOR_CONFIRM_REVIVE_INTERVAL_IN_SECS = 1;
+
+	  std::this_thread::sleep_for (std::chrono::seconds (SERVER_MONITOR_CONFIRM_REVIVE_INTERVAL_IN_SECS));
+
+	  produce_job_internal (job_type::CONFIRM_REVIVE_SERVER, -1, "", "",
+				entry->first);
+
 	}
       else
 	{
-	  _er_log_debug (ARG_FILE_LINE,
-			 "[Server Monitor] [%s] Failed to revive server due to unknown error from kill() function. It will no longer be revived automatically. (pid : %d)",
-			 entry->first.c_str(), entry->second.get_pid());
-	  kill (entry->second.get_pid (), SIGKILL);
-	  m_server_entry_map.erase (entry);
+	  _er_log_debug (ARG_FILE_LINE, "[Server Monitor] [%s] Server revive success. (pid : %d)",
+			 entry->first.c_str(),
+			 entry->second.get_pid());
 	}
+      return;
     }
-  else if (entry->second.get_need_revive ())
-    {
-      // Server revive confirm interval is set to be 1 second to avoid busy waiting.
-      constexpr int SERVER_MONITOR_CONFIRM_REVIVE_INTERVAL_IN_SECS = 1;
-
-      std::this_thread::sleep_for (std::chrono::seconds (SERVER_MONITOR_CONFIRM_REVIVE_INTERVAL_IN_SECS));
-
-      produce_job_internal (job_type::CONFIRM_REVIVE_SERVER, -1, "", "",
-			    entry->first);
-
-    }
-  else
-    {
-      _er_log_debug (ARG_FILE_LINE, "[Server Monitor] [%s] Server revive success. (pid : %d)",
-		     entry->first.c_str(),
-		     entry->second.get_pid());
-    }
-  return;
 }
 
 int
@@ -290,22 +274,24 @@ void
 server_monitor::shutdown_server (const std::string &server_name)
 {
   auto entry = m_server_entry_map.find (server_name);
+  int pid = entry->second.get_pid ();
 
   if (entry != m_server_entry_map.end ())
     {
       if (entry->second.get_need_revive ())
 	{
-	  entry->second.set_is_shutdown (true);
+	  m_server_entry_map.erase (entry);
 	  _er_log_debug (ARG_FILE_LINE,
 			 "[Server Monitor] [%s] Server is shutdown. Reviving the server will not be tried.",
-			 entry->first.c_str());
-
+			 server_name);
 	}
       else
 	{
+	  m_server_entry_map.erase (entry);
+	  kill (pid, SIGKILL);
 	  _er_log_debug (ARG_FILE_LINE,
 			 "[Server Monitor] [%s] Server is already revived. Server monitor will not try to shutdown server. (pid : %d)",
-			 entry->first.c_str(), entry->second.get_pid());
+			 server_name, pid);
 	}
     }
 }
@@ -409,7 +395,6 @@ server_entry (int pid, const std::string &exec_path, const std::string &args,
   : m_pid {pid}
   , m_exec_path {exec_path}
   , m_need_revive {false}
-  , m_is_shutdown {false}
   , m_last_revived_time {revive_time}
 {
   if (args.size() > 0)
@@ -448,12 +433,6 @@ server_monitor::server_entry::get_last_revived_time () const
   return m_last_revived_time;
 }
 
-bool
-server_monitor::server_entry::get_is_shutdown () const
-{
-  return m_is_shutdown;
-}
-
 void
 server_monitor::server_entry::set_pid (int pid)
 {
@@ -476,12 +455,6 @@ void
 server_monitor::server_entry::set_last_revived_time (std::chrono::steady_clock::time_point revive_time)
 {
   m_last_revived_time = revive_time;
-}
-
-void
-server_monitor::server_entry::set_is_shutdown (bool is_shutdown)
-{
-  m_is_shutdown = is_shutdown;
 }
 
 void

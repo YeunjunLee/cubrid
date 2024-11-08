@@ -1617,8 +1617,6 @@ is_server_running (const char *type, const char *server_name, int pid)
 static int
 shutdown_revive_server (const char *server_name)
 {
-  int status;
-
   const char *args[] = { UTIL_COMMDB_NAME, COMMDB_SHUTDOWN_REVIVE_SERVER, server_name, NULL };
   return proc_execute (UTIL_COMMDB_NAME, args, true, false, false, NULL);
 }
