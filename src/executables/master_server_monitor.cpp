@@ -283,15 +283,15 @@ server_monitor::shutdown_server (const std::string &server_name)
 	  m_server_entry_map.erase (entry);
 	  _er_log_debug (ARG_FILE_LINE,
 			 "[Server Monitor] [%s] Server is shutdown. Reviving the server will not be tried.",
-			 server_name);
+			 server_name.c_str());
 	}
       else
 	{
 	  m_server_entry_map.erase (entry);
 	  kill (pid, SIGKILL);
 	  _er_log_debug (ARG_FILE_LINE,
-			 "[Server Monitor] [%s] Server is already revived. Server monitor will not try to shutdown server. (pid : %d)",
-			 server_name, pid);
+			 "[Server Monitor] [%s] Server is already revived. Server monitor will terminate the server. (pid : %d)",
+			 server_name.c_str(), pid);
 	}
     }
 }
