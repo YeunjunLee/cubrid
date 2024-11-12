@@ -273,11 +273,13 @@ server_monitor::try_revive_server (const std::string &exec_path, char *const *ar
 void
 server_monitor::shutdown_server (const std::string &server_name)
 {
+  int pid;
   auto entry = m_server_entry_map.find (server_name);
-  int pid = entry->second.get_pid ();
 
   if (entry != m_server_entry_map.end ())
     {
+      pid = entry->second.get_pid ();
+
       if (entry->second.get_need_revive ())
 	{
 	  m_server_entry_map.erase (entry);
