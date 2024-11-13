@@ -606,6 +606,21 @@ css_process_kill_immediate (CSS_CONN_ENTRY * conn, unsigned short request_id, ch
     }
 }
 
+void
+css_process_kill_immediate_by_name (char *server_name)
+{
+  SOCKET_QUEUE_ENTRY *temp;
+
+  for (temp = css_Master_socket_anchor; temp; temp = temp->next)
+    {
+      if ((temp->name != NULL) && (strcmp (temp->name, server_name) == 0))
+	{
+	  css_process_kill_immediate (temp->conn_ptr, 0, server_name);
+	  return;
+	}
+    }
+}
+
 /*
  * css_process_shutdown_revive_server()
  *   return: none

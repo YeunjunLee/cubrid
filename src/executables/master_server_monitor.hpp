@@ -33,6 +33,7 @@
 #include <chrono>
 #include <condition_variable>
 #include "connection_globals.h"
+#include "master_request.h"
 
 class server_monitor
 {

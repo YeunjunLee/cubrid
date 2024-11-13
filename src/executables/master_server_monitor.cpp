@@ -290,7 +290,7 @@ server_monitor::shutdown_server (const std::string &server_name)
       else
 	{
 	  m_server_entry_map.erase (entry);
-	  kill (pid, SIGKILL);
+	  css_process_kill_immediate_by_name (const_cast<char *> (server_name.c_str()));
 	  _er_log_debug (ARG_FILE_LINE,
 			 "[Server Monitor] [%s] Server is already revived. Server monitor will terminate the server. (pid : %d)",
 			 server_name.c_str(), pid);
