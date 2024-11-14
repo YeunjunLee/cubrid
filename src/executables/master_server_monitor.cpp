@@ -273,28 +273,25 @@ server_monitor::try_revive_server (const std::string &exec_path, char *const *ar
 void
 server_monitor::shutdown_server (const std::string &server_name)
 {
-  int pid;
   auto entry = m_server_entry_map.find (server_name);
 
   if (entry != m_server_entry_map.end ())
     {
-      pid = entry->second.get_pid ();
 
       if (entry->second.get_need_revive ())
 	{
-	  m_server_entry_map.erase (entry);
 	  _er_log_debug (ARG_FILE_LINE,
 			 "[Server Monitor] [%s] Server is shutdown. Reviving the server will not be tried.",
 			 server_name.c_str());
 	}
       else
 	{
-	  m_server_entry_map.erase (entry);
 	  css_process_kill_immediate_by_name (const_cast<char *> (server_name.c_str()));
 	  _er_log_debug (ARG_FILE_LINE,
 			 "[Server Monitor] [%s] Server is already revived. Server monitor will terminate the server. (pid : %d)",
-			 server_name.c_str(), pid);
+			 server_name.c_str(), entry->second.get_pid());
 	}
+      m_server_entry_map.erase (entry);
     }
 }
 

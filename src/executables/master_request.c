@@ -611,6 +611,7 @@ css_process_kill_immediate_by_name (char *server_name)
 {
   SOCKET_QUEUE_ENTRY *temp;
 
+  int rv = pthread_mutex_lock (&css_Master_socket_anchor_lock);
   for (temp = css_Master_socket_anchor; temp; temp = temp->next)
     {
       if ((temp->name != NULL) && (strcmp (temp->name, server_name) == 0))
@@ -619,6 +620,7 @@ css_process_kill_immediate_by_name (char *server_name)
 	  return;
 	}
     }
+  pthread_mutex_unlock (&css_Master_socket_anchor_lock);
 }
 
 /*
