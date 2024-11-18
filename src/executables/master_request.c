@@ -611,7 +611,6 @@ css_process_kill_immediate_by_name (char *server_name)
 {
   SOCKET_QUEUE_ENTRY *temp;
 
-  int rv = pthread_mutex_lock (&css_Master_socket_anchor_lock);
   for (temp = css_Master_socket_anchor; temp; temp = temp->next)
     {
       if ((temp->name != NULL) && (strcmp (temp->name, server_name) == 0))
@@ -620,18 +619,17 @@ css_process_kill_immediate_by_name (char *server_name)
 	  return;
 	}
     }
-  pthread_mutex_unlock (&css_Master_socket_anchor_lock);
 }
 
 /*
- * css_process_shutdown_revive_server()
+ * css_process_shutdown_reviving_server()
  *   return: none
  *   conn(in)
  *   request_id(in)
  *   server_name(in/out)
  */
 static void
-css_process_shutdown_revive_server (CSS_CONN_ENTRY * conn, unsigned short request_id, char *server_name)
+css_process_shutdown_reviving_server (CSS_CONN_ENTRY * conn, unsigned short request_id, char *server_name)
 {
 #if !defined(WINDOWS)
   if (auto_Restart_server)
@@ -1975,10 +1973,10 @@ css_process_info_request (CSS_CONN_ENTRY * conn)
 	      css_process_kill_immediate (conn, request_id, buffer);
 	    }
 	  break;
-	case SHUTDOWN_REVIVE_SERVER:
+	case SHUTDOWN_REVIVING_SERVER:
 	  if (buffer != NULL)
 	    {
-	      css_process_shutdown_revive_server (conn, request_id, buffer);
+	      css_process_shutdown_reviving_server (conn, request_id, buffer);
 	    }
 	  break;
 	case GET_ALL_COUNT:

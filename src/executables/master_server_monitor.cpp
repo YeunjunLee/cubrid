@@ -273,6 +273,7 @@ server_monitor::try_revive_server (const std::string &exec_path, char *const *ar
 void
 server_monitor::shutdown_server (const std::string &server_name)
 {
+  int rv;
   auto entry = m_server_entry_map.find (server_name);
 
   if (entry != m_server_entry_map.end ())
@@ -286,7 +287,10 @@ server_monitor::shutdown_server (const std::string &server_name)
 	}
       else
 	{
+	  rv = pthread_mutex_lock (&css_Master_socket_anchor_lock);
 	  css_process_kill_immediate_by_name (const_cast<char *> (server_name.c_str()));
+	  pthread_mutex_unlock (&css_Master_socket_anchor_lock);
+
 	  _er_log_debug (ARG_FILE_LINE,
 			 "[Server Monitor] [%s] Server is already revived. Server monitor will terminate the server. (pid : %d)",
 			 server_name.c_str(), entry->second.get_pid());
