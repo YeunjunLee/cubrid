@@ -615,7 +615,7 @@ css_process_kill_immediate_by_name (char *server_name)
     {
       if ((temp->name != NULL) && (strcmp (temp->name, server_name) == 0))
 	{
-	  css_process_kill_immediate (temp->conn_ptr, 0, server_name);
+	  css_send_command_to_server (temp, SERVER_SHUTDOWN_IMMEDIATE);
 	  return;
 	}
     }
