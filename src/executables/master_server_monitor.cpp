@@ -288,7 +288,7 @@ server_monitor::shutdown_server (const std::string &server_name)
       else
 	{
 	  rv = pthread_mutex_lock (&css_Master_socket_anchor_lock);
-	  css_process_kill_immediate_by_name (const_cast<char *> (server_name.c_str()));
+	  css_process_start_shutdown_by_name (const_cast<char *> (server_name.c_str()));
 	  pthread_mutex_unlock (&css_Master_socket_anchor_lock);
 
 	  _er_log_debug (ARG_FILE_LINE,
