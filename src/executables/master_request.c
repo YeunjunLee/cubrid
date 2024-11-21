@@ -607,7 +607,7 @@ css_process_kill_immediate (CSS_CONN_ENTRY * conn, unsigned short request_id, ch
 }
 
 void
-css_process_kill_immediate_by_name (char *server_name)
+css_process_start_shutdown_by_name (char *server_name)
 {
   SOCKET_QUEUE_ENTRY *temp;
 
@@ -615,7 +615,8 @@ css_process_kill_immediate_by_name (char *server_name)
     {
       if ((temp->name != NULL) && (strcmp (temp->name, server_name) == 0))
 	{
-	  css_send_command_to_server (temp, SERVER_SHUTDOWN_IMMEDIATE);
+	  css_send_command_to_server (temp, SERVER_START_SHUTDOWN);
+	  css_cleanup_info_connection (temp->conn_ptr);
 	  return;
 	}
     }
