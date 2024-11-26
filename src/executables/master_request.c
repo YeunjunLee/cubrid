@@ -606,21 +606,30 @@ css_process_kill_immediate (CSS_CONN_ENTRY * conn, unsigned short request_id, ch
     }
 }
 
+/*
+ * css_process_start_shutdown_by_name()
+ *   return: none
+ *   server_name(in/out)
+ */
 void
 css_process_start_shutdown_by_name (char *server_name)
 {
+#if !defined(WINDOWS)
   SOCKET_QUEUE_ENTRY *temp;
+  char buffer[512];
+  int rv = pthread_mutex_lock (&css_Master_socket_anchor_lock);
 
   for (temp = css_Master_socket_anchor; temp; temp = temp->next)
     {
       if ((temp->name != NULL) && (strcmp (temp->name, server_name) == 0))
 	{
-	  css_send_command_to_server (temp, SERVER_START_SHUTDOWN);
-	  css_cleanup_info_connection (temp->conn_ptr);
-	  return;
+	  css_process_start_shutdown (temp, 0, buffer);
 	}
     }
+  pthread_mutex_unlock (&css_Master_socket_anchor_lock);
+#endif
 }
+
 
 /*
  * css_process_shutdown_reviving_server()
