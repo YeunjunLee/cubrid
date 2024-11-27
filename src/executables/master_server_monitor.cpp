@@ -209,6 +209,7 @@ server_monitor::check_server_revived (const std::string &server_name)
 {
   int error_code;
   auto entry = m_server_entry_map.find (server_name);
+
   if (entry != m_server_entry_map.end ())
     {
       error_code = kill (entry->second.get_pid (), 0);

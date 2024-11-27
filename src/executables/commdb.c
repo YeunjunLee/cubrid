@@ -1390,12 +1390,12 @@ main (int argc, char **argv)
 	  commdb_Arg_ha_start_util_process = true;
 	  break;
 	case COMMDB_SHUTDOWN_REVIVING_SERVER_S:
-	  commdb_Arg_shutdown_reviving_server = true;
 	  if (commdb_Arg_shutdown_reviving_server_name != NULL)
 	    {
 	      free_and_init (commdb_Arg_shutdown_reviving_server_name);
 	    }
 	  commdb_Arg_shutdown_reviving_server_name = strdup (optarg);
+	  commdb_Arg_shutdown_reviving_server = true;
 	  break;
 	default:
 	  util_log_write_errid (MSGCAT_UTIL_GENERIC_INVALID_ARGUMENT);

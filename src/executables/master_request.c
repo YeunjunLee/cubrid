@@ -616,17 +616,20 @@ css_process_start_shutdown_by_name (char *server_name)
 {
 #if !defined(WINDOWS)
   SOCKET_QUEUE_ENTRY *temp;
-  char buffer[512];
-  int rv = pthread_mutex_lock (&css_Master_socket_anchor_lock);
+  char buffer[MASTER_TO_SRV_MSG_SIZE];
+
+  (void) pthread_mutex_lock (&css_Master_socket_anchor_lock);
 
   for (temp = css_Master_socket_anchor; temp; temp = temp->next)
     {
       if ((temp->name != NULL) && (strcmp (temp->name, server_name) == 0))
 	{
+	  /* Send a shutdown request to the specified cub_server with a timeout of 0. 
+	   * Buffer will be unused in the receiving function (css_process_shutdown_request). */
 	  css_process_start_shutdown (temp, 0, buffer);
 	}
     }
-  pthread_mutex_unlock (&css_Master_socket_anchor_lock);
+  (void) pthread_mutex_unlock (&css_Master_socket_anchor_lock);
 #endif
 }
 
