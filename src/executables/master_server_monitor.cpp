@@ -209,45 +209,47 @@ server_monitor::check_server_revived (const std::string &server_name)
 {
   int error_code;
   auto entry = m_server_entry_map.find (server_name);
-  assert (entry != m_server_entry_map.end ());
 
-  error_code = kill (entry->second.get_pid (), 0);
-  if (error_code)
+  if (entry != m_server_entry_map.end ())
     {
-      if (errno == ESRCH)
+      error_code = kill (entry->second.get_pid (), 0);
+      if (error_code)
 	{
-	  _er_log_debug (ARG_FILE_LINE,
-			 "[Server Monitor] [%s] Revived server process can not be found. Server monitor will try to revive server again. (pid : %d)",
-			 entry->first.c_str(), entry->second.get_pid());
-	  produce_job_internal (job_type::REVIVE_SERVER, -1, "", "", entry->first);
+	  if (errno == ESRCH)
+	    {
+	      _er_log_debug (ARG_FILE_LINE,
+			     "[Server Monitor] [%s] Revived server process can not be found. Server monitor will try to revive server again. (pid : %d)",
+			     entry->first.c_str(), entry->second.get_pid());
+	      produce_job_internal (job_type::REVIVE_SERVER, -1, "", "", entry->first);
+	    }
+	  else
+	    {
+	      _er_log_debug (ARG_FILE_LINE,
+			     "[Server Monitor] [%s] Failed to revive server due to unknown error from kill() function. It will no longer be revived automatically. (pid : %d)",
+			     entry->first.c_str(), entry->second.get_pid());
+	      kill (entry->second.get_pid (), SIGKILL);
+	      m_server_entry_map.erase (entry);
+	    }
+	}
+      else if (entry->second.get_need_revive ())
+	{
+	  // Server revive confirm interval is set to be 1 second to avoid busy waiting.
+	  constexpr int SERVER_MONITOR_CONFIRM_REVIVE_INTERVAL_IN_SECS = 1;
+
+	  std::this_thread::sleep_for (std::chrono::seconds (SERVER_MONITOR_CONFIRM_REVIVE_INTERVAL_IN_SECS));
+
+	  produce_job_internal (job_type::CONFIRM_REVIVE_SERVER, -1, "", "",
+				entry->first);
+
 	}
       else
 	{
-	  _er_log_debug (ARG_FILE_LINE,
-			 "[Server Monitor] [%s] Failed to revive server due to unknown error from kill() function. It will no longer be revived automatically. (pid : %d)",
-			 entry->first.c_str(), entry->second.get_pid());
-	  kill (entry->second.get_pid (), SIGKILL);
-	  m_server_entry_map.erase (entry);
+	  _er_log_debug (ARG_FILE_LINE, "[Server Monitor] [%s] Server revive success. (pid : %d)",
+			 entry->first.c_str(),
+			 entry->second.get_pid());
 	}
+      return;
     }
-  else if (entry->second.get_need_revive ())
-    {
-      // Server revive confirm interval is set to be 1 second to avoid busy waiting.
-      constexpr int SERVER_MONITOR_CONFIRM_REVIVE_INTERVAL_IN_SECS = 1;
-
-      std::this_thread::sleep_for (std::chrono::seconds (SERVER_MONITOR_CONFIRM_REVIVE_INTERVAL_IN_SECS));
-
-      produce_job_internal (job_type::CONFIRM_REVIVE_SERVER, -1, "", "",
-			    entry->first);
-
-    }
-  else
-    {
-      _er_log_debug (ARG_FILE_LINE, "[Server Monitor] [%s] Server revive success. (pid : %d)",
-		     entry->first.c_str(),
-		     entry->second.get_pid());
-    }
-  return;
 }
 
 int
@@ -267,6 +269,32 @@ server_monitor::try_revive_server (const std::string &exec_path, char *const *ar
   else
     {
       return pid;
+    }
+}
+void
+server_monitor::shutdown_server (const std::string &server_name)
+{
+  int rv;
+  auto entry = m_server_entry_map.find (server_name);
+
+  if (entry != m_server_entry_map.end ())
+    {
+
+      if (entry->second.get_need_revive ())
+	{
+	  _er_log_debug (ARG_FILE_LINE,
+			 "[Server Monitor] [%s] Server is shutdown. Reviving the server will not be tried.",
+			 server_name.c_str());
+	}
+      else
+	{
+	  css_process_start_shutdown_by_name (const_cast<char *> (server_name.c_str()));
+
+	  _er_log_debug (ARG_FILE_LINE,
+			 "[Server Monitor] [%s] Server is already revived. Server monitor will terminate the server. (pid : %d)",
+			 server_name.c_str(), entry->second.get_pid());
+	}
+      m_server_entry_map.erase (entry);
     }
 }
 
@@ -311,6 +339,9 @@ server_monitor::process_job (job &consume_job)
       break;
     case job_type::CONFIRM_REVIVE_SERVER:
       check_server_revived (consume_job.get_server_name());
+      break;
+    case job_type::SHUTDOWN_SERVER:
+      shutdown_server (consume_job.get_server_name());
       break;
     case job_type::JOB_MAX:
     default:

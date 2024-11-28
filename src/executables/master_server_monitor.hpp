@@ -33,6 +33,7 @@
 #include <chrono>
 #include <condition_variable>
 #include "connection_globals.h"
+#include "master_request.h"
 
 class server_monitor
 {
@@ -45,6 +46,7 @@ class server_monitor
       UNREGISTER_SERVER = 1,
       REVIVE_SERVER = 2,
       CONFIRM_REVIVE_SERVER = 3,
+      SHUTDOWN_SERVER = 4,
       JOB_MAX
     };
 
@@ -98,6 +100,7 @@ class server_monitor
     void revive_server (const std::string &server_name);
     int try_revive_server (const std::string &exec_path, char *const *argv);
     void check_server_revived (const std::string &server_name);
+    void shutdown_server (const std::string &server_name);
 
     void produce_job_internal (job_type job_type, int pid, const std::string &exec_path, const std::string &args,
 			       const std::string &server_name);
