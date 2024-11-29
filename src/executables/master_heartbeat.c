@@ -252,6 +252,7 @@ static char hb_Nolog_event_msg[LINE_MAX] = "";
 static HB_DEACTIVATE_INFO hb_Deactivate_info = { NULL, 0, false };
 
 static bool hb_Is_activated = true;
+static bool hb_Failover_by_master_isolation = false;
 
 /* cluster jobs */
 static HB_JOB_FUNC hb_cluster_jobs[] = {
@@ -836,6 +837,8 @@ hb_cluster_job_calc_score (HB_JOB_ARG * arg)
 	      clst_arg->ping_check_count = 0;
 	      clst_arg->retries = 0;
 
+	      MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
+			     "[Failback] [Diagnosis] The master node has failed to receive heartbeat messages from all other slave nodes, resulting in a network partition.");
 	      error = hb_cluster_job_queue (HB_CJOB_CHECK_PING, job_arg, HB_JOB_TIMER_IMMEDIATELY);
 	      assert (error == NO_ERROR);
 	    }
@@ -855,24 +858,8 @@ hb_cluster_job_calc_score (HB_JOB_ARG * arg)
 	  && hb_Cluster->master->priority != hb_Cluster->myself->priority))
     {
       MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
-		     "More than one master detected and failback will be initiated");
-
-      hb_help_sprint_nodes_info (hb_info_str, HB_INFO_STR_MAX);
-      MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
-
-      if (hb_Cluster->num_ping_hosts > 0)
-	{
-	  if (prm_get_string_value (PRM_ID_HA_PING_HOSTS))
-	    {
-	      hb_help_sprint_ping_host_info (hb_info_str, HB_INFO_STR_MAX);
-	    }
-	  else
-	    {
-	      hb_help_sprint_tcp_ping_host_info (hb_info_str, HB_INFO_STR_MAX);
-	    }
-
-	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
-	}
+		     "[Failback] [Diagnosis] Multiple master nodes (%s, %s) are detected.",
+		     hb_Cluster->master->host_name, hb_Cluster->myself->host_name);
 
       pthread_mutex_unlock (&hb_Cluster->lock);
 
@@ -893,6 +880,19 @@ hb_cluster_job_calc_score (HB_JOB_ARG * arg)
     {
       hb_Cluster->state = HB_NSTATE_TO_BE_MASTER;
       hb_cluster_request_heartbeat_to_all ();
+
+      if (hb_Failover_by_master_isolation)
+	{
+	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
+			 "[Failover] [Diagnosis] The current node has failed to receive heartbeat messages from the master node (%s).",
+			 hb_Cluster->master->host_name);
+	}
+      else
+	{
+	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
+			 "[Failover] [Diagnosis] The master node (%s) has lost its role due to server process problem, such as disk failure.",
+			 hb_Cluster->master->host_name);
+	}
 
       pthread_mutex_unlock (&hb_Cluster->lock);
 
@@ -1518,6 +1518,11 @@ hb_cluster_calc_score (void)
 				      node->last_recv_hbtime) >
 	      prm_get_integer_value (PRM_ID_HA_CALC_SCORE_INTERVAL_IN_MSECS)))
 	{
+	  if (node->state == HB_NSTATE_MASTER)
+	    {
+	      hb_Failover_by_master_isolation = true;
+	    }
+
 	  node->heartbeat_gap = 0;
 	  node->last_recv_hbtime.tv_sec = 0;
 	  node->last_recv_hbtime.tv_usec = 0;
@@ -3524,6 +3529,8 @@ hb_resource_job_confirm_start (HB_JOB_ARG * arg)
 	    }
 
 	  /* shutdown working server processes to change its role to slave */
+	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_PROCESS_EVENT, 1,
+			 "[Failback] [Diagnosis] The master node failed to restart the server process.");
 	  error = hb_resource_job_queue (HB_RJOB_DEMOTE_START_SHUTDOWN, NULL, HB_JOB_TIMER_IMMEDIATELY);
 	  assert (error == NO_ERROR);
 
@@ -4083,6 +4090,8 @@ hb_cleanup_conn_and_start_process (CSS_CONN_ENTRY * conn, SOCKET sfd)
 			 error_string);
 
 	  /* shutdown working server processes to change its role to slave */
+	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_PROCESS_EVENT, 1,
+			 "[Failback] [Diagnosis] The master node failed to restart the server process.");
 	  error = hb_resource_job_queue (HB_RJOB_DEMOTE_START_SHUTDOWN, NULL, HB_JOB_TIMER_IMMEDIATELY);
 	  assert (error == NO_ERROR);
 	}
@@ -4776,6 +4785,8 @@ hb_thread_check_disk_failure (void *arg)
 		  syslog (LOG_ALERT, "[CUBRID] %s () at %s:%d", __func__, __FILE__, __LINE__);
 #endif /* !WINDOWS */
 
+		  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_PROCESS_EVENT, 1,
+				 "[Failover] [Diagnosis] The master node has lost its role due to server process problem, such as disk failure.");
 		  error = hb_resource_job_queue (HB_RJOB_DEMOTE_START_SHUTDOWN, NULL, HB_JOB_TIMER_IMMEDIATELY);
 		  assert (error == NO_ERROR);
 
