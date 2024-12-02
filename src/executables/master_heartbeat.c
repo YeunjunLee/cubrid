@@ -253,6 +253,7 @@ static HB_DEACTIVATE_INFO hb_Deactivate_info = { NULL, 0, false };
 
 static bool hb_Is_activated = true;
 static bool hb_Failover_by_master_isolation = false;
+static char hb_Master_host_name[CUB_MAXHOSTNAMELEN];
 
 /* cluster jobs */
 static HB_JOB_FUNC hb_cluster_jobs[] = {
@@ -814,6 +815,7 @@ hb_cluster_job_calc_score (HB_JOB_ARG * arg)
 
   rv = pthread_mutex_lock (&hb_Cluster->lock);
 
+  hb_Master_host_name[0] = '\0';
   num_master = hb_cluster_calc_score ();
   hb_Cluster->is_isolated = hb_cluster_is_isolated ();
 
@@ -885,13 +887,13 @@ hb_cluster_job_calc_score (HB_JOB_ARG * arg)
 	{
 	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
 			 "[Failover] [Diagnosis] The current node has failed to receive heartbeat messages from the master node (%s).",
-			 hb_Cluster->master->host_name);
+			 hb_Master_host_name);
 	}
       else
 	{
 	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
 			 "[Failover] [Diagnosis] The master node (%s) has lost its role due to server process problem, such as disk failure.",
-			 hb_Cluster->master->host_name);
+			 hb_Master_host_name);
 	}
 
       pthread_mutex_unlock (&hb_Cluster->lock);
@@ -1076,9 +1078,24 @@ hb_cluster_job_check_ping (HB_JOB_ARG * arg)
 ping_check_cancel:
 /* if this node is a master, then failback is cancelled */
 
-  if (hb_Cluster->state != HB_NSTATE_MASTER)
+  if (hb_Cluster->state == HB_NSTATE_MASTER)
     {
-      MASTER_ER_SET (ER_NOTIFICATION_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, "Failover cancelled by ping check");
+      if (ping_try_count == 0)
+	{
+	  MASTER_ER_SET (ER_NOTIFICATION_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
+			 "[Failback] [Cancelled] No hosts are registered in ha_ping_hosts, or all registered hosts are invalid, making it impossible to determine the network partition.");
+	}
+      else
+	{
+	  assert (ping_success);
+	  MASTER_ER_SET (ER_NOTIFICATION_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
+			 "[Failback] [Cancelled] Ping check succeeded for the hosts registered in ha_ping_hosts, determining that it is not a network partition.");
+	}
+    }
+  else
+    {
+      MASTER_ER_SET (ER_NOTIFICATION_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
+		     "[Failover] [Cancelled] Ping check has been failed to all hosts registered in ha_ping_hosts, indicating a network partition.");
       hb_Cluster->state = HB_NSTATE_SLAVE;
     }
   hb_cluster_request_heartbeat_to_all ();
@@ -1118,11 +1135,13 @@ hb_cluster_job_failover (HB_JOB_ARG * arg)
 
   rv = pthread_mutex_lock (&hb_Cluster->lock);
 
+  hb_Master_host_name[0] = '\0';
   num_master = hb_cluster_calc_score ();
 
   if (hb_Cluster->master && hb_Cluster->myself && hb_Cluster->master->priority == hb_Cluster->myself->priority)
     {
-      MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, "Failover completed");
+      MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
+		     "[Failover] [Success] Current node has been successfully promoted to master.");
       hb_Cluster->state = HB_NSTATE_MASTER;
       hb_Resource->state = HB_NSTATE_MASTER;
 
@@ -1131,7 +1150,8 @@ hb_cluster_job_failover (HB_JOB_ARG * arg)
     }
   else
     {
-      MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, "Failover cancelled");
+      MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
+		     "[Failover] [Cancelled] New master has been found. Failover for current node has been cancelled.");
       hb_Cluster->state = HB_NSTATE_SLAVE;
     }
 
@@ -1252,6 +1272,9 @@ hb_cluster_job_demote (HB_JOB_ARG * arg)
 
 	  hb_Cluster->hide_to_demote = false;
 
+	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
+			 "Current node has been successfully demoted to slave.");
+
 	  pthread_mutex_unlock (&hb_Cluster->lock);
 
 	  if (arg)
@@ -1306,7 +1329,7 @@ hb_cluster_job_failback (HB_JOB_ARG * arg)
   hb_cluster_request_heartbeat_to_all ();
 
   MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1,
-		 "This master will become a slave and cub_server will be restarted");
+		 "[Failback] [Success] Current node has been successfully demoted to slave.");
 
   hb_help_sprint_nodes_info (hb_info_str, HB_INFO_STR_MAX);
   MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
@@ -1509,6 +1532,12 @@ hb_cluster_calc_score (void)
 
   for (node = hb_Cluster->nodes; node; node = node->next)
     {
+      // If node is master, save master host name to hb_Master_host_name. It is used for error message at failover event.
+      if (node->state == HB_NSTATE_MASTER)
+	{
+	  strncpy (hb_Master_host_name, node->host_name, sizeof (node->host_name) - 1);
+	}
+
       /* If this node does not receive heartbeat message over than prm_get_integer_value (PRM_ID_HA_MAX_HEARTBEAT_GAP)
        * times, (or sufficient time has been elapsed from the last received heartbeat message time), this node does not
        * know what other node state is. */

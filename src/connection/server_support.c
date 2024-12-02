@@ -792,6 +792,8 @@ css_process_get_eof_request (SOCKET master_fd)
 
   LOG_CS_EXIT (thread_p);
 
+  er_log_debug (ARG_FILE_LINE, "Current node has been demoted from master to slave, due to the disk failure.\n");
+
   css_send_heartbeat_request (css_Master_conn, SERVER_GET_EOF);
   css_send_heartbeat_data (css_Master_conn, reply, OR_ALIGNED_BUF_SIZE (a_reply));
 #endif
