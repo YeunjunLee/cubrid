@@ -131,6 +131,7 @@ static HA_LOG_APPLIER_STATE_TABLE ha_Log_applier_state[HA_LOG_APPLIER_STATE_TABL
 };
 
 static int ha_Log_applier_state_num = 0;
+static LOG_LSA prev_eof_lsa;
 
 // *INDENT-OFF*
 static cubthread::entry_workpool *css_Server_request_worker_pool = NULL;
@@ -788,11 +789,16 @@ css_process_get_eof_request (SOCKET master_fd)
   LOG_CS_ENTER_READ_MODE (thread_p);
 
   eof_lsa = log_get_eof_lsa ();
+  if (LSA_EQ (&prev_eof_lsa, eof_lsa))
+    {
+      er_log_debug (ARG_FILE_LINE, "Disk failure has been occurred: prev_eof_lsa(%lld, %d), eof_lsa(%lld, %d)\n",
+		    prev_eof_lsa.pageid, prev_eof_lsa.offset, eof_lsa->pageid, eof_lsa->offset);
+    }
+  LSA_COPY (&prev_eof_lsa, eof_lsa);
+
   (void) or_pack_log_lsa (reply, eof_lsa);
 
   LOG_CS_EXIT (thread_p);
-
-  er_log_debug (ARG_FILE_LINE, "Current node has been demoted from master to slave, due to the disk failure.\n");
 
   css_send_heartbeat_request (css_Master_conn, SERVER_GET_EOF);
   css_send_heartbeat_data (css_Master_conn, reply, OR_ALIGNED_BUF_SIZE (a_reply));
