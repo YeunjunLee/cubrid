@@ -776,7 +776,7 @@ css_process_get_eof_request (SOCKET master_fd)
 {
 #if !defined(WINDOWS)
   LOG_LSA *eof_lsa;
-  static LOG_LSA prev_eof_lsa = LOG_LSA_INITIALIZER;
+  static LOG_LSA prev_eof_lsa = LSA_INITIALIZER;
   OR_ALIGNED_BUF (OR_LOG_LSA_ALIGNED_SIZE) a_reply;
   char *reply;
   THREAD_ENTRY *thread_p;
