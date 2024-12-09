@@ -1128,7 +1128,7 @@ ping_check_cancel:
   else
     {
       snprintf (hb_info_str, HB_INFO_STR_MAX,
-		"%sPing check has been failed to all hosts registered in ha_ping_hosts, indicating a network partition.",
+		"%sPing check has been failed to all hosts registered in ha_ping_hosts, indicating a network partition",
 		HA_FAILOVER_CANCEL_STRING);
       MASTER_ER_SET (ER_NOTIFICATION_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
       hb_Cluster->state = HB_NSTATE_SLAVE;
@@ -1174,7 +1174,7 @@ hb_cluster_job_failover (HB_JOB_ARG * arg)
 
   if (hb_Cluster->master && hb_Cluster->myself && hb_Cluster->master->priority == hb_Cluster->myself->priority)
     {
-      snprintf (hb_info_str, HB_INFO_STR_MAX, "%sCurrent node has been successfully promoted to master.",
+      snprintf (hb_info_str, HB_INFO_STR_MAX, "%sCurrent node has been successfully promoted to master",
 		HA_FAILOVER_SUCCESS_STRING);
       MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
       hb_Cluster->state = HB_NSTATE_MASTER;
@@ -1186,7 +1186,7 @@ hb_cluster_job_failover (HB_JOB_ARG * arg)
   else
     {
       snprintf (hb_info_str, HB_INFO_STR_MAX,
-		"%sNew master has been found. Failover for current node has been cancelled.",
+		"%sNew master has been found. Failover for current node has been cancelled",
 		HA_FAILOVER_CANCEL_STRING);
       MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
       hb_Cluster->state = HB_NSTATE_SLAVE;
