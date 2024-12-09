@@ -4156,8 +4156,7 @@ hb_cleanup_conn_and_start_process (CSS_CONN_ENTRY * conn, SOCKET sfd)
 	  snprintf (hb_info_str, HB_INFO_STR_MAX,
 		    "%sServer process failure repeated within a short period of time. The current node will be demoted",
 		    HA_FAILBACK_DIAG_STRING);
-	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_PROCESS_EVENT, 1, HA_FAILBACK_DIAG_STRING,
-			 hb_info_str);
+	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_PROCESS_EVENT, 1, hb_info_str);
 
 	  error = hb_resource_job_queue (HB_RJOB_DEMOTE_START_SHUTDOWN, NULL, HB_JOB_TIMER_IMMEDIATELY);
 	  assert (error == NO_ERROR);
