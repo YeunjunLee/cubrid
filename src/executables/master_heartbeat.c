@@ -1308,7 +1308,7 @@ hb_cluster_job_demote (HB_JOB_ARG * arg)
 
 	  hb_Cluster->hide_to_demote = false;
 
-	  snprintf (hb_info_str, HB_INFO_STR_MAX, "%sCurrent node has been successfully demoted to slave.",
+	  snprintf (hb_info_str, HB_INFO_STR_MAX, "%sCurrent node has been successfully demoted to slave",
 		    HA_FAILBACK_SUCCESS_STRING);
 	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
 
