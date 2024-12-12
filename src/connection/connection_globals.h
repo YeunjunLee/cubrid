@@ -32,7 +32,7 @@
 
 #define CSS_MAX_CLIENT_COUNT   4000
 
-#define CSS_SERVER_PROC_REGISTER_INITIALIZER    {"", 0, "", "", -1}
+#define CSS_SERVER_PROC_REGISTER_INITIALIZER    {"", 0, -1, "", ""}
 
 typedef bool (*CSS_CHECK_CLIENT_TYPE) (BOOT_CLIENT_TYPE client_type);
 typedef int (*CSS_GET_MAX_CONN_NUM) (void);
@@ -73,10 +73,10 @@ struct css_server_proc_register
 
   char server_name[CSS_SERVER_MAX_SZ_SERVER_NAME];
   int server_name_length;
+  int pid;
 
   char exec_path[CSS_SERVER_MAX_SZ_PROC_EXEC_PATH];
   char args[CSS_SERVER_MAX_SZ_PROC_ARGS];
-  int pid;
 };
 
 extern int css_Service_id;
