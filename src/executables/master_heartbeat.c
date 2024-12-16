@@ -331,12 +331,12 @@ static HB_JOB_FUNC hb_resource_jobs[] = {
 #define HA_ADMIN_INFO_NOLOG_EVENT_FORMAT_STRING  \
         "    %s\n"
 
-#define HA_FAILBACK_DIAG_STRING       "[Failback] [Diagnosis] "
-#define HA_FAILBACK_SUCCESS_STRING    "[Failback] [Success] "
-#define HA_FAILBACK_CANCEL_STRING     "[Failback] [Cancelled] "
-#define HA_FAILOVER_DIAG_STRING       "[Failover] [Diagnosis] "
-#define HA_FAILOVER_SUCCESS_STRING    "[Failover] [Success] "
-#define HA_FAILOVER_CANCEL_STRING     "[Failover] [Cancelled] "
+#define HA_FAILBACK_DIAG_STRING       "[Failback] [Diagnosis]"
+#define HA_FAILBACK_SUCCESS_STRING    "[Failback] [Success]"
+#define HA_FAILBACK_CANCEL_STRING     "[Failback] [Cancelled]"
+#define HA_FAILOVER_DIAG_STRING       "[Failover] [Diagnosis]"
+#define HA_FAILOVER_SUCCESS_STRING    "[Failover] [Success]"
+#define HA_FAILOVER_CANCEL_STRING     "[Failover] [Cancelled]"
 /*
  * linked list
  */
@@ -846,7 +846,7 @@ hb_cluster_job_calc_score (HB_JOB_ARG * arg)
 	      clst_arg->retries = 0;
 
 	      snprintf (hb_info_str, HB_INFO_STR_MAX,
-			"%sThe master node has failed to receive heartbeat messages from all other slave nodes, resulting in a network partition",
+			"%s The master node has failed to receive heartbeat messages from all other slave nodes, resulting in a network partition",
 			HA_FAILBACK_DIAG_STRING);
 	      MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
 
@@ -868,7 +868,7 @@ hb_cluster_job_calc_score (HB_JOB_ARG * arg)
       && (hb_Cluster->master && hb_Cluster->myself && hb_Cluster->myself->state == HB_NSTATE_MASTER
 	  && hb_Cluster->master->priority != hb_Cluster->myself->priority))
     {
-      snprintf (hb_info_str, HB_INFO_STR_MAX, "%sMultiple master nodes (%s, %s) are detected", HA_FAILBACK_DIAG_STRING,
+      snprintf (hb_info_str, HB_INFO_STR_MAX, "%s Multiple master nodes (%s, %s) are detected", HA_FAILBACK_DIAG_STRING,
 		hb_Cluster->myself->host_name, hb_Cluster->master->host_name);
       MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
 
@@ -912,14 +912,14 @@ hb_cluster_job_calc_score (HB_JOB_ARG * arg)
       if (hb_Is_master_node_isolated)
 	{
 	  snprintf (hb_info_str, HB_INFO_STR_MAX,
-		    "%sThe current node has failed to receive heartbeat messages from the master node (%s)",
+		    "%s The current node has failed to receive heartbeat messages from the master node (%s)",
 		    HA_FAILOVER_DIAG_STRING, hb_Master_host_name);
 	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
 	}
       else if (hb_Master_host_name[0] != '\0')
 	{
 	  snprintf (hb_info_str, HB_INFO_STR_MAX,
-		    "%sThe master node (%s) has lost its role due to server process problem, such as disk failure",
+		    "%s The master node (%s) has lost its role due to server process problem, such as disk failure",
 		    HA_FAILOVER_DIAG_STRING, hb_Master_host_name);
 	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
 	}
@@ -1112,7 +1112,7 @@ ping_check_cancel:
       if (ping_try_count == 0)
 	{
 	  snprintf (hb_info_str, HB_INFO_STR_MAX,
-		    "%sNo hosts are registered in ha_ping_hosts, or all registered hosts are invalid, making it impossible to determine the network partition",
+		    "%s No hosts are registered in ha_ping_hosts, or all registered hosts are invalid, making it impossible to determine the network partition",
 		    HA_FAILBACK_CANCEL_STRING);
 	  MASTER_ER_SET (ER_NOTIFICATION_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
 	}
@@ -1120,7 +1120,7 @@ ping_check_cancel:
 	{
 	  assert (ping_success);
 	  snprintf (hb_info_str, HB_INFO_STR_MAX,
-		    "%sPing check succeeded for the hosts registered in ha_ping_hosts, determining that it is not a network partition",
+		    "%s Ping check succeeded for the hosts registered in ha_ping_hosts, determining that it is not a network partition",
 		    HA_FAILBACK_CANCEL_STRING);
 	  MASTER_ER_SET (ER_NOTIFICATION_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
 	}
@@ -1128,7 +1128,7 @@ ping_check_cancel:
   else
     {
       snprintf (hb_info_str, HB_INFO_STR_MAX,
-		"%sPing check has been failed to all hosts registered in ha_ping_hosts, indicating a network partition",
+		"%s Ping check has been failed to all hosts registered in ha_ping_hosts, indicating a network partition",
 		HA_FAILOVER_CANCEL_STRING);
       MASTER_ER_SET (ER_NOTIFICATION_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
       hb_Cluster->state = HB_NSTATE_SLAVE;
@@ -1174,7 +1174,7 @@ hb_cluster_job_failover (HB_JOB_ARG * arg)
 
   if (hb_Cluster->master && hb_Cluster->myself && hb_Cluster->master->priority == hb_Cluster->myself->priority)
     {
-      snprintf (hb_info_str, HB_INFO_STR_MAX, "%sCurrent node has been successfully promoted to master",
+      snprintf (hb_info_str, HB_INFO_STR_MAX, "%s Current node has been successfully promoted to master",
 		HA_FAILOVER_SUCCESS_STRING);
       MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
       hb_Cluster->state = HB_NSTATE_MASTER;
@@ -1186,7 +1186,8 @@ hb_cluster_job_failover (HB_JOB_ARG * arg)
   else
     {
       snprintf (hb_info_str, HB_INFO_STR_MAX,
-		"%sNew master has been found. Failover for current node has been cancelled", HA_FAILOVER_CANCEL_STRING);
+		"%s New master has been found. Failover for current node has been cancelled",
+		HA_FAILOVER_CANCEL_STRING);
       MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
       hb_Cluster->state = HB_NSTATE_SLAVE;
     }
@@ -1308,7 +1309,7 @@ hb_cluster_job_demote (HB_JOB_ARG * arg)
 
 	  hb_Cluster->hide_to_demote = false;
 
-	  snprintf (hb_info_str, HB_INFO_STR_MAX, "%sCurrent node has been successfully demoted to slave",
+	  snprintf (hb_info_str, HB_INFO_STR_MAX, "%s Current node has been successfully demoted to slave",
 		    HA_FAILBACK_SUCCESS_STRING);
 	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
 
@@ -1365,7 +1366,7 @@ hb_cluster_job_failback (HB_JOB_ARG * arg)
 
   hb_cluster_request_heartbeat_to_all ();
 
-  snprintf (hb_info_str, HB_INFO_STR_MAX, "%sCurrent node has been successfully demoted to slave",
+  snprintf (hb_info_str, HB_INFO_STR_MAX, "%s Current node has been successfully demoted to slave",
 	    HA_FAILBACK_SUCCESS_STRING);
   MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_NODE_EVENT, 1, hb_info_str);
 
@@ -3596,7 +3597,7 @@ hb_resource_job_confirm_start (HB_JOB_ARG * arg)
 	    }
 
 	  /* shutdown working server processes to change its role to slave */
-	  snprintf (hb_info_str, HB_INFO_STR_MAX, "%sThe master node failed to restart the server process",
+	  snprintf (hb_info_str, HB_INFO_STR_MAX, "%s The master node failed to restart the server process",
 		    HA_FAILBACK_DIAG_STRING);
 	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_PROCESS_EVENT, 1, hb_info_str);
 	  error = hb_resource_job_queue (HB_RJOB_DEMOTE_START_SHUTDOWN, NULL, HB_JOB_TIMER_IMMEDIATELY);
@@ -4155,7 +4156,7 @@ hb_cleanup_conn_and_start_process (CSS_CONN_ENTRY * conn, SOCKET sfd)
 
 	  snprintf (error_string, LINE_MAX, "(args:%s)", proc->args);
 	  snprintf (hb_info_str, HB_INFO_STR_MAX,
-		    "%sServer process failure repeated within a short period of time. The current node will be demoted",
+		    "%s Server process failure repeated within a short period of time. The current node will be demoted",
 		    HA_FAILBACK_DIAG_STRING);
 	  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_PROCESS_EVENT, 1, hb_info_str);
 
@@ -4842,7 +4843,7 @@ hb_thread_check_disk_failure (void *arg)
 	      if (hb_resource_check_server_log_grow () == false)
 		{
 		  snprintf (hb_info_str, HB_INFO_STR_MAX,
-			    "%sThe master node has lost its role due to server process problem, such as disk failure",
+			    "%s The master node has lost its role due to server process problem, such as disk failure",
 			    HA_FAILOVER_DIAG_STRING);
 		  MASTER_ER_SET (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HB_PROCESS_EVENT, 1, hb_info_str);
 
