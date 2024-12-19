@@ -394,6 +394,12 @@ css_accept_new_request (CSS_CONN_ENTRY * conn, unsigned short rid, char *buffer,
 #if !defined(WINDOWS)
 	      if (auto_Restart_server)
 		{
+		  // TODO : Currently, server and client has different format of data payload to connect process to master.
+		  // Since both process is handled by this function, it could make confusion when requesting connection from process.
+		  // Two solution could be considered.
+		  // 1. Separte the request for server and client. (SERVER_REQUEST_FROM_CLIENT, SERVER_REQUEST_FROM_SERVER)
+		  // 2. Modify the data payload so that master can distinguish the request from server and client. (e.g. add flag character at the beginning of data)
+
 		  CSS_SERVER_PROC_REGISTER *proc_register = (CSS_SERVER_PROC_REGISTER *) buffer;
 		  /* *INDENT-OFF* */
 		  master_Server_monitor->produce_job (server_monitor::job_type::REGISTER_SERVER, proc_register->pid,
