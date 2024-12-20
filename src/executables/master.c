@@ -348,15 +348,15 @@ css_accept_new_request (CSS_CONN_ENTRY * conn, unsigned short rid, char *buffer,
 #if defined(DEBUG)
 	  css_Active_server_count++;
 #endif
-	  server_name = buffer;
-	  length = (int) strlen (server_name) + 1;
-	  css_add_request_to_socket_queue (datagram_conn, false, server_name, server_fd, READ_WRITE, 0,
+	  css_add_request_to_socket_queue (datagram_conn, false, buffer, server_fd, READ_WRITE, 0,
 					   &css_Master_socket_anchor);
 
 	  //  Note : server_name is usually packed(appended) information of server_name, version_string, env_var, pid,
 	  //  packed from css_pack_server_name(). Since there are some cases that returns server_name and server_name_length
 	  //  as NULL, we need to check if server_name is packed information or not.
 
+	  server_name = buffer;
+	  length = (int) strlen (server_name) + 1;
 	  assert (length <= DB_MAX_IDENTIFIER_LENGTH);
 
 	  if (length < buffer_length)
