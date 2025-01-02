@@ -360,7 +360,10 @@ css_accept_new_request (CSS_CONN_ENTRY * conn, unsigned short rid, char *buffer,
 	    }
 	  else
 	    {
+	      assert (buffer != NULL);
 	      proc_register = (CSS_SERVER_PROC_REGISTER *) buffer;
+	      
+	      assert (proc_register->server_name != NULL);
 	      server_name = proc_register->server_name;
 	      server_name_length = proc_register->server_name_length;
 	    }
