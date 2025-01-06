@@ -290,6 +290,8 @@ namespace cubpl
       }
 
 exit:
+    m_stack->reset_query_handlers ();
+
     // restore execution rights
     change_exec_rights (NULL);
 
@@ -303,18 +305,13 @@ exit:
     int error = NO_ERROR;
     int is_restore = (auth_name == NULL) ? 1 : 0;
 
-    auto dummy = [&] (const cubmem::block & b)
-    {
-      return NO_ERROR;
-    };
-
     if (is_restore == 0)
       {
-	error = m_stack->send_data_to_client (dummy, METHOD_CALLBACK_CHANGE_RIGHTS, is_restore, std::string (auth_name));
+	error = m_stack->send_data_to_client (METHOD_CALLBACK_CHANGE_RIGHTS, is_restore, std::string (auth_name));
       }
     else
       {
-	error = m_stack->send_data_to_client (dummy, METHOD_CALLBACK_CHANGE_RIGHTS, is_restore);
+	error = m_stack->send_data_to_client (METHOD_CALLBACK_CHANGE_RIGHTS, is_restore);
 
       }
 
@@ -329,7 +326,7 @@ exit:
     SESSION_ID sid = get_session ()->get_id ();
     TRANID tid = m_stack->get_tran_id ();
 
-    m_stack->set_command (SP_CODE_INVOKE);
+    m_stack->set_java_command (SP_CODE_INVOKE);
 
     // get changed session parameters
     const std::vector<sys_param> &session_params = get_session ()->obtain_session_parameters (true);
@@ -339,6 +336,17 @@ exit:
 
     error = m_stack->send_data_to_java (session_params, prepare_arg, invoke_arg);
     return error;
+  }
+
+  void
+  executor::handle_type_resultset (DB_VALUE &returnval)
+  {
+    if (db_value_type (&returnval) == DB_TYPE_RESULTSET)
+      {
+	std::uint64_t query_id = db_get_resultset (&returnval);
+	// qfile_update_qlist_count (thread_p, m_list_id, -1);
+	m_stack->promote_to_session_cursor (query_id);
+      }
   }
 
   int
@@ -422,15 +430,7 @@ exit:
 	value_unpacker.value = &returnval;
 	value_unpacker.unpack (unpacker);
 
-	if (db_value_type (&returnval) == DB_TYPE_RESULTSET)
-	  {
-	    std::uint64_t query_id = db_get_resultset (&returnval);
-	    if (query_id != NULL_QUERY_ID)
-	      {
-		// qfile_update_qlist_count (thread_p, m_list_id, -1);
-		m_stack->promote_to_session_cursor (query_id);
-	      }
-	  }
+	handle_type_resultset (returnval);
 
 	for (int i = 0; i < m_sig.arg.arg_size; i++)
 	  {
@@ -441,6 +441,8 @@ exit:
 		value_unpacker.value = &out_val;
 		value_unpacker.unpack (unpacker);
 		m_out_args.emplace_back (out_val);
+
+		handle_type_resultset (out_val);
 	      }
 	  }
 	return NO_ERROR;
@@ -626,7 +628,7 @@ exit:
       return error;
     };
 
-    error = m_stack->send_data_to_client (get_prepare_info, code, sql, flag, m_stack->get_tran_id ());
+    error = m_stack->send_data_to_client_recv (get_prepare_info, code, sql, flag, m_stack->get_tran_id ());
     return error;
   }
 
@@ -656,9 +658,10 @@ exit:
 	  int stmt_type = current_result_info.stmt_type;
 	  if (stmt_type == CUBRID_STMT_SELECT)
 	    {
+	      int hid = info.handle_id;
 	      std::uint64_t qid = current_result_info.query_id;
 	      bool is_oid_included = current_result_info.include_oid;
-	      (void) m_stack->add_cursor (qid, is_oid_included);
+	      (void) m_stack->add_cursor (hid, qid, is_oid_included);
 	    }
 	}
 
@@ -666,7 +669,7 @@ exit:
       return error;
     };
 
-    error = m_stack->send_data_to_client (get_execute_info, code, request);
+    error = m_stack->send_data_to_client_recv (get_execute_info, code, request);
     request.clear ();
 
     return error;
@@ -772,7 +775,7 @@ exit:
       return m_stack->send_data_to_java (b);
     };
 
-    error = m_stack->send_data_to_client (java_lambda, code, request);
+    error = m_stack->send_data_to_client_recv (java_lambda, code, request);
     return error;
   }
 
@@ -791,7 +794,7 @@ exit:
       return m_stack->send_data_to_java (b);
     };
 
-    error = m_stack->send_data_to_client (java_lambda, code, request);
+    error = m_stack->send_data_to_client_recv (java_lambda, code, request);
     return error;
   }
 
@@ -809,7 +812,7 @@ exit:
       return m_stack->send_data_to_java (b);
     };
 
-    error = m_stack->send_data_to_client (java_lambda, code, command, oid);
+    error = m_stack->send_data_to_client_recv (java_lambda, code, command, oid);
     return error;
   }
 
@@ -830,7 +833,7 @@ exit:
       return m_stack->send_data_to_java (b);
     };
 
-    error = m_stack->send_data_to_client (java_lambda, code, request);
+    error = m_stack->send_data_to_client_recv (java_lambda, code, request);
     return error;
   }
 
@@ -848,24 +851,33 @@ exit:
       packing_unpacker unpacker (b.ptr, (size_t) b.dim);
 
       int res_code;
-      make_outresult_info info;
-      unpacker.unpack_all (res_code, info);
+      unpacker.unpack_int (res_code);
 
-      const query_result_info &current_result_info = info.qresult_info;
-      query_cursor *cursor = m_stack->get_cursor (current_result_info.query_id);
-      if (cursor)
+      if (res_code == METHOD_RESPONSE_SUCCESS)
 	{
-	  cursor->change_owner (&thread_ref);
-	  return m_stack->send_data_to_java (b);
+	  make_outresult_info info;
+	  info.unpack (unpacker);
+
+	  const query_result_info &current_result_info = info.qresult_info;
+	  query_cursor *cursor = m_stack->get_cursor (current_result_info.query_id);
+	  if (cursor)
+	    {
+	      cursor->change_owner (&thread_ref);
+	      return m_stack->send_data_to_java (b);
+	    }
+	  else
+	    {
+	      assert (false);
+	      return ER_FAILED;
+	    }
 	}
       else
 	{
-	  assert (false);
 	  return ER_FAILED;
 	}
     };
 
-    error = m_stack->send_data_to_client (get_make_outresult_info, code, query_id);
+    error = m_stack->send_data_to_client_recv (get_make_outresult_info, code, query_id);
 
     return error;
   }
@@ -883,7 +895,7 @@ exit:
       return m_stack->send_data_to_java (b);
     };
 
-    error = m_stack->send_data_to_client (java_lambda, code, handler_id);
+    error = m_stack->send_data_to_client_recv (java_lambda, code, handler_id);
     return error;
   }
 
@@ -901,7 +913,7 @@ exit:
       return m_stack->send_data_to_java (b);
     };
 
-    error = m_stack->send_data_to_client (java_lambda, code, command);
+    error = m_stack->send_data_to_client_recv (java_lambda, code, command);
     return error;
   }
 
@@ -921,7 +933,7 @@ exit:
       return m_stack->send_data_to_java (b);
     };
 
-    error = m_stack->send_data_to_client (java_lambda, code, command, auth_name);
+    error = m_stack->send_data_to_client_recv (java_lambda, code, command, auth_name);
     return error;
   }
 
