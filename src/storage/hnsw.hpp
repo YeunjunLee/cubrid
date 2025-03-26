@@ -32,7 +32,6 @@
 int hnsw_add_index (BTID *btid, int dimension, int hnsw_M, int hnsw_efConstruction, enum faiss::MetricType metric_type);
 int hnsw_delete_index (BTID *btid);
 int hnsw_print_index_info (BTID *btid);
+int hnsw_add_element (BTID *btid, const std::vector<float> &vector);
 
-extern int hnsw_index_id;
-extern std::unordered_map<int, std::unique_ptr<faiss::IndexHNSW>> hnsw_index_map;
 #endif
