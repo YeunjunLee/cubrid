@@ -556,6 +556,7 @@ qdata_generate_tuple_desc_for_valptr_list (THREAD_ENTRY * thread_p, valptr_list_
 
   /* copy each value pointer into the each tdp field */
   reg_var_p = valptr_list_p->valptrp;
+  fprintf (stderr, "valptr_list_p->valptr_cnt: %d\n", valptr_list_p->valptr_cnt);
   for (i = 0; i < valptr_list_p->valptr_cnt; i++)
     {
       if (!REGU_VARIABLE_IS_FLAGED (&reg_var_p->value, REGU_VARIABLE_HIDDEN_COLUMN))
