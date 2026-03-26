@@ -104,6 +104,13 @@ namespace cubhnsw
 
   using vector_cache_t = vector_cache_helper::type;
 
+  struct vector_cache_fp16_helper
+  {
+    using type = ankerl::unordered_dense::map<OID, std::vector<float16>, oid_hash, oid_equal>;
+  };
+
+  using vector_cache_fp16_t = vector_cache_fp16_helper::type;
+
   struct neighbors_key
   {
     slot_id_t slot;
@@ -168,6 +175,7 @@ namespace cubhnsw
     bool m_is_debugging {false};
     FILE *m_debug_fp {nullptr};
     std::vector<std::string> m_accessed_nodes; // for debug
+    std::vector<float16> m_query_fp16;
 
     void open_debug_file (std::size_t level_start_debug_cnt, std::size_t debug_cnt, int level)
     {

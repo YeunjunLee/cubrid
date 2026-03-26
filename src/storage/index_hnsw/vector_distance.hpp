@@ -20,6 +20,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 namespace cubhnsw
 {
@@ -32,6 +33,20 @@ namespace cubhnsw
     MAX
   };
 
+  struct float16
+  {
+    std::uint16_t bits;
+
+    float16 ();
+    explicit float16 (float value);
+
+    float to_float () const;
+
+    operator float () const;
+
+    static float16 from_bits (std::uint16_t raw_bits);
+  };
+
   bool cubvec_cosine_normalize (float *__restrict vec, std::size_t dim);
 
   using distance_t = float;
@@ -40,5 +55,9 @@ namespace cubhnsw
   extern const std::array<distance_fn_t,
 	 static_cast<std::size_t> (vector_distance_metric_t::MAX)>
 	 metric_table;
+
+  distance_t cubvec_cosine_distance_float16 (const float16 *vec1, const float16 *vec2, std::size_t dim);
+  distance_t cubvec_l2_distance_float16 (const float16 *vec1, const float16 *vec2, std::size_t dim);
+  distance_t cubvec_inner_product_distance_float16 (const float16 *vec1, const float16 *vec2, std::size_t dim);
 
 } // namespace cubhnsw

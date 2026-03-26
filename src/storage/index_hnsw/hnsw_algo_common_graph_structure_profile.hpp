@@ -81,6 +81,10 @@ namespace cubhnsw
 
     std::string to_string () const
     {
+      if (total_nodes % 1000 != 0)
+      {
+        return "";
+      }
       std::ostringstream oss;
 
       if (total_nodes == 0)

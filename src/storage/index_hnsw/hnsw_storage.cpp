@@ -234,6 +234,27 @@ namespace cubhnsw
     return cached.data ();
   }
 
+  const float16 *
+  storage::get_vector_fp16_by_slot_id (algo_context_t &context, const slot_id_t &slot, const lock_mode &mode)
+  {
+    auto it = m_vector_cache_fp16.find (slot);
+    if (it != m_vector_cache_fp16.end ())
+      {
+	return it->second.data ();
+      }
+
+    const float *vec = get_vector_by_slot_id (context, slot, mode);
+
+    std::vector<float16> &cached = m_vector_cache_fp16[slot];
+    cached.resize (get_dimension ());
+    for (std::size_t i = 0; i < get_dimension (); ++i)
+      {
+	cached[i] = float16 (vec[i]);
+      }
+
+    return cached.data ();
+  }
+
   // promote lockmode from shared to exclusive
   void
   storage::promote_root (pinned_t &old)

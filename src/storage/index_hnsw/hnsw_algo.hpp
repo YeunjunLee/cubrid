@@ -23,6 +23,7 @@
 #ifndef _HNSW_ALGO_HPP_
 #define _HNSW_ALGO_HPP_
 
+#include <cmath>
 #include <functional>
 
 #include "hnsw_api.hpp"
@@ -97,11 +98,63 @@ namespace cubhnsw
 	return metric_table[static_cast<size_t> (m_metric)] (v1, v2, m_dimension);
       }
 
+      inline void prepare_query_fp16_ (algo_context_t &context, const float *query) const
+      {
+	context.m_query_fp16.resize (m_dimension);
+	for (std::size_t i = 0; i < m_dimension; ++i)
+	  {
+	    context.m_query_fp16[i] = float16 (query[i]);
+	  }
+      }
+
+      inline distance_t compute_distance_fp16_ (const float16 *v1, const float16 *v2) const
+      {
+	switch (m_metric)
+	  {
+	  case vector_distance_metric_t::COSINE:
+	    return cubvec_cosine_distance_float16 (v1, v2, m_dimension);
+	  case vector_distance_metric_t::EUCLIDEAN:
+	    return cubvec_l2_distance_float16 (v1, v2, m_dimension);
+	  case vector_distance_metric_t::DOT:
+	    return cubvec_inner_product_distance_float16 (v1, v2, m_dimension);
+	  default:
+	    assert (false);
+	    return 0.0f;
+	  }
+      }
+
+      inline distance_t get_fp16_recheck_window_ (distance_t radius) const
+      {
+	const distance_t base = std::max (std::fabs (radius), 1.0f);
+	switch (m_metric)
+	  {
+	  case vector_distance_metric_t::EUCLIDEAN:
+	    return std::max (0.02f * base, static_cast<distance_t> (0.001f * m_dimension));
+	  case vector_distance_metric_t::COSINE:
+	  case vector_distance_metric_t::DOT:
+	    return 0.02f * base;
+	  default:
+	    assert (false);
+	    return 0.02f * base;
+	  }
+      }
+
+      inline bool should_recheck_candidate_fp32_ (distance_t coarse_dist, distance_t radius) const
+      {
+	return coarse_dist <= radius + get_fp16_recheck_window_ (radius);
+      }
+
       inline distance_t compute_distance_from_query_ (algo_context_t &context, const float *query,
 	  const slot_id_t &slot) const
       {
 	const float *vec = m_storage->get_vector_by_slot_id (context, slot, lock_mode::shared);
 	return compute_distance_ (context, query, vec);
+      }
+
+      inline distance_t compute_distance_from_query_fp16_ (algo_context_t &context, const slot_id_t &slot) const
+      {
+	const float16 *vec = m_storage->get_vector_fp16_by_slot_id (context, slot, lock_mode::shared);
+	return compute_distance_fp16_ (context.m_query_fp16.data (), vec);
       }
 
       inline distance_t compute_distance_between (algo_context_t &context, const slot_id_t &a,
@@ -408,6 +461,8 @@ namespace cubhnsw
 	  }
       }
 
+    prepare_query_fp16_ (context, query);
+
     slot_id_t closest_slot;
 
     context.m_level = root_level;
@@ -455,6 +510,7 @@ namespace cubhnsw
     visited_set_t &visits = context.m_visits;
 
     context.clear_candidates();
+    prepare_query_fp16_ (context, query);
 
     distance_t radius = compute_distance_from_query_ (context, query, start_slot);
 
@@ -492,6 +548,14 @@ namespace cubhnsw
 		  }
 		stats.on_visit ();
 
+		distance_t successor_dist_fp16 = compute_distance_from_query_fp16_ (context, successor_slot);
+		if (top.size () >= expansion_limit
+		    && !should_recheck_candidate_fp32_ (successor_dist_fp16, radius))
+		  {
+		    stats.on_candidate_prune ();
+		    continue;
+		  }
+
 		distance_t successor_dist = compute_distance_from_query_ (context, query, successor_slot);
 		if (top.size () < expansion_limit || successor_dist < radius)
 		  {
@@ -527,6 +591,14 @@ namespace cubhnsw
 	      }
 	    stats.on_visit ();
 
+	    distance_t successor_dist_fp16 = compute_distance_from_query_fp16_ (context, successor_slot);
+	    if (top.size () >= expansion_limit
+		&& !should_recheck_candidate_fp32_ (successor_dist_fp16, radius))
+	      {
+		stats.on_candidate_prune ();
+		continue;
+	      }
+
 	    distance_t successor_dist = compute_distance_from_query_ (context, query, successor_slot);
 	    if (top.size () < expansion_limit || successor_dist < radius)
 	      {
@@ -561,6 +633,7 @@ namespace cubhnsw
 
     visited_set_t &visits = context.m_visits;
     visits.clear ();
+    prepare_query_fp16_ (context, query);
 
     slot_id_t closest_slot = start_slot;
     distance_t closest_dist = compute_distance_from_query_ (context, query, closest_slot);
@@ -582,6 +655,11 @@ namespace cubhnsw
 		for (slot_id_t neighbor_id : *cached_neighbors)
 		  {
 		    stats.on_neighbor_scan ();
+		    distance_t candidate_dist_fp16 = compute_distance_from_query_fp16_ (context, neighbor_id);
+		    if (!should_recheck_candidate_fp32_ (candidate_dist_fp16, closest_dist))
+		      {
+			continue;
+		      }
 		    distance_t candidate_dist = compute_distance_from_query_ (context, query, neighbor_id);
 		    if (candidate_dist < closest_dist)
 		      {
@@ -605,6 +683,12 @@ namespace cubhnsw
 		    slot_id_t neighbor_id = neighbors.at (i);
 		    neigh.push_back (neighbor_id);
 		    stats.on_neighbor_scan ();
+
+		    distance_t candidate_dist_fp16 = compute_distance_from_query_fp16_ (context, neighbor_id);
+		    if (!should_recheck_candidate_fp32_ (candidate_dist_fp16, closest_dist))
+		      {
+			continue;
+		      }
 
 		    distance_t candidate_dist = compute_distance_from_query_ (context, query, neighbor_id);
 		    if (candidate_dist < closest_dist)
