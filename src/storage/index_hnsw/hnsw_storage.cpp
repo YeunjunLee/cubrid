@@ -18,6 +18,9 @@
 
 #include "hnsw_storage.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 #include "file_manager.h" // FILE_DESCRIPTORS
 #include "slotted_page.h"
 
@@ -234,25 +237,34 @@ namespace cubhnsw
     return cached.data ();
   }
 
-  const float16 *
-  storage::get_vector_fp16_by_slot_id (algo_context_t &context, const slot_id_t &slot, const lock_mode &mode)
+  const quantized_vector_i8 *
+  storage::get_quantized_vector_i8_by_slot_id (algo_context_t &context, const slot_id_t &slot, const lock_mode &mode)
   {
-    auto it = m_vector_cache_fp16.find (slot);
-    if (it != m_vector_cache_fp16.end ())
+    auto it = m_vector_cache_i8.find (slot);
+    if (it != m_vector_cache_i8.end ())
       {
-	return it->second.data ();
+	return &it->second;
       }
 
     const float *vec = get_vector_by_slot_id (context, slot, mode);
-
-    std::vector<float16> &cached = m_vector_cache_fp16[slot];
-    cached.resize (get_dimension ());
+    float max_abs = 0.0f;
     for (std::size_t i = 0; i < get_dimension (); ++i)
       {
-	cached[i] = float16 (vec[i]);
+	max_abs = std::max (max_abs, std::fabs (vec[i]));
       }
 
-    return cached.data ();
+    quantized_vector_i8 &cached = m_vector_cache_i8[slot];
+    cached.scale = (max_abs > 0.0f) ? max_abs / 127.0f : 1.0f;
+    cached.values.resize (get_dimension ());
+    for (std::size_t i = 0; i < get_dimension (); ++i)
+      {
+	const float scaled = vec[i] / cached.scale;
+	const float rounded = std::round (scaled);
+	const float clamped = std::max (-127.0f, std::min (127.0f, rounded));
+	cached.values[i] = static_cast<std::int8_t> (clamped);
+      }
+
+    return &cached;
   }
 
   // promote lockmode from shared to exclusive

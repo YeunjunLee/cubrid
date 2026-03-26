@@ -104,12 +104,18 @@ namespace cubhnsw
 
   using vector_cache_t = vector_cache_helper::type;
 
-  struct vector_cache_fp16_helper
+  struct quantized_vector_i8
   {
-    using type = ankerl::unordered_dense::map<OID, std::vector<float16>, oid_hash, oid_equal>;
+    float scale {1.0f};
+    std::vector<std::int8_t> values;
   };
 
-  using vector_cache_fp16_t = vector_cache_fp16_helper::type;
+  struct vector_cache_i8_helper
+  {
+    using type = ankerl::unordered_dense::map<OID, quantized_vector_i8, oid_hash, oid_equal>;
+  };
+
+  using vector_cache_i8_t = vector_cache_i8_helper::type;
 
   struct neighbors_key
   {
@@ -175,7 +181,7 @@ namespace cubhnsw
     bool m_is_debugging {false};
     FILE *m_debug_fp {nullptr};
     std::vector<std::string> m_accessed_nodes; // for debug
-    std::vector<float16> m_query_fp16;
+    quantized_vector_i8 m_query_i8;
 
     void open_debug_file (std::size_t level_start_debug_cnt, std::size_t debug_cnt, int level)
     {

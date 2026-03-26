@@ -98,32 +98,43 @@ namespace cubhnsw
 	return metric_table[static_cast<size_t> (m_metric)] (v1, v2, m_dimension);
       }
 
-      inline void prepare_query_fp16_ (algo_context_t &context, const float *query) const
+      inline void prepare_query_i8_ (algo_context_t &context, const float *query) const
       {
-	context.m_query_fp16.resize (m_dimension);
+	float max_abs = 0.0f;
 	for (std::size_t i = 0; i < m_dimension; ++i)
 	  {
-	    context.m_query_fp16[i] = float16 (query[i]);
+	    max_abs = std::max (max_abs, std::fabs (query[i]));
+	  }
+
+	context.m_query_i8.scale = (max_abs > 0.0f) ? max_abs / 127.0f : 1.0f;
+	context.m_query_i8.values.resize (m_dimension);
+	for (std::size_t i = 0; i < m_dimension; ++i)
+	  {
+	    const float scaled = query[i] / context.m_query_i8.scale;
+	    const float rounded = std::round (scaled);
+	    const float clamped = std::max (-127.0f, std::min (127.0f, rounded));
+	    context.m_query_i8.values[i] = static_cast<std::int8_t> (clamped);
 	  }
       }
 
-      inline distance_t compute_distance_fp16_ (const float16 *v1, const float16 *v2) const
+      inline distance_t compute_distance_i8_ (const quantized_vector_i8 &v1, const quantized_vector_i8 &v2) const
       {
 	switch (m_metric)
 	  {
 	  case vector_distance_metric_t::COSINE:
-	    return cubvec_cosine_distance_float16 (v1, v2, m_dimension);
+	    return cubvec_cosine_distance_int8 (v1.values.data (), v1.scale, v2.values.data (), v2.scale, m_dimension);
 	  case vector_distance_metric_t::EUCLIDEAN:
-	    return cubvec_l2_distance_float16 (v1, v2, m_dimension);
+	    return cubvec_l2_distance_int8 (v1.values.data (), v1.scale, v2.values.data (), v2.scale, m_dimension);
 	  case vector_distance_metric_t::DOT:
-	    return cubvec_inner_product_distance_float16 (v1, v2, m_dimension);
+	    return cubvec_inner_product_distance_int8 (v1.values.data (), v1.scale, v2.values.data (), v2.scale,
+						      m_dimension);
 	  default:
 	    assert (false);
 	    return 0.0f;
 	  }
       }
 
-      inline distance_t get_fp16_recheck_window_ (distance_t radius) const
+      inline distance_t get_i8_recheck_window_ (distance_t radius) const
       {
 	const distance_t base = std::max (std::fabs (radius), 1.0f);
 	switch (m_metric)
@@ -141,7 +152,7 @@ namespace cubhnsw
 
       inline bool should_recheck_candidate_fp32_ (distance_t coarse_dist, distance_t radius) const
       {
-	return coarse_dist <= radius + get_fp16_recheck_window_ (radius);
+	return coarse_dist <= radius + get_i8_recheck_window_ (radius);
       }
 
       inline distance_t compute_distance_from_query_ (algo_context_t &context, const float *query,
@@ -151,10 +162,10 @@ namespace cubhnsw
 	return compute_distance_ (context, query, vec);
       }
 
-      inline distance_t compute_distance_from_query_fp16_ (algo_context_t &context, const slot_id_t &slot) const
+      inline distance_t compute_distance_from_query_i8_ (algo_context_t &context, const slot_id_t &slot) const
       {
-	const float16 *vec = m_storage->get_vector_fp16_by_slot_id (context, slot, lock_mode::shared);
-	return compute_distance_fp16_ (context.m_query_fp16.data (), vec);
+	const quantized_vector_i8 *vec = m_storage->get_quantized_vector_i8_by_slot_id (context, slot, lock_mode::shared);
+	return compute_distance_i8_ (context.m_query_i8, *vec);
       }
 
       inline distance_t compute_distance_between (algo_context_t &context, const slot_id_t &a,
@@ -461,7 +472,7 @@ namespace cubhnsw
 	  }
       }
 
-    prepare_query_fp16_ (context, query);
+    prepare_query_i8_ (context, query);
 
     slot_id_t closest_slot;
 
@@ -510,7 +521,7 @@ namespace cubhnsw
     visited_set_t &visits = context.m_visits;
 
     context.clear_candidates();
-    prepare_query_fp16_ (context, query);
+    prepare_query_i8_ (context, query);
 
     distance_t radius = compute_distance_from_query_ (context, query, start_slot);
 
@@ -548,9 +559,9 @@ namespace cubhnsw
 		  }
 		stats.on_visit ();
 
-		distance_t successor_dist_fp16 = compute_distance_from_query_fp16_ (context, successor_slot);
+		distance_t successor_dist_i8 = compute_distance_from_query_i8_ (context, successor_slot);
 		if (top.size () >= expansion_limit
-		    && !should_recheck_candidate_fp32_ (successor_dist_fp16, radius))
+		    && !should_recheck_candidate_fp32_ (successor_dist_i8, radius))
 		  {
 		    stats.on_candidate_prune ();
 		    continue;
@@ -591,9 +602,9 @@ namespace cubhnsw
 	      }
 	    stats.on_visit ();
 
-	    distance_t successor_dist_fp16 = compute_distance_from_query_fp16_ (context, successor_slot);
+	    distance_t successor_dist_i8 = compute_distance_from_query_i8_ (context, successor_slot);
 	    if (top.size () >= expansion_limit
-		&& !should_recheck_candidate_fp32_ (successor_dist_fp16, radius))
+		&& !should_recheck_candidate_fp32_ (successor_dist_i8, radius))
 	      {
 		stats.on_candidate_prune ();
 		continue;
@@ -633,7 +644,7 @@ namespace cubhnsw
 
     visited_set_t &visits = context.m_visits;
     visits.clear ();
-    prepare_query_fp16_ (context, query);
+    prepare_query_i8_ (context, query);
 
     slot_id_t closest_slot = start_slot;
     distance_t closest_dist = compute_distance_from_query_ (context, query, closest_slot);
@@ -655,8 +666,8 @@ namespace cubhnsw
 		for (slot_id_t neighbor_id : *cached_neighbors)
 		  {
 		    stats.on_neighbor_scan ();
-		    distance_t candidate_dist_fp16 = compute_distance_from_query_fp16_ (context, neighbor_id);
-		    if (!should_recheck_candidate_fp32_ (candidate_dist_fp16, closest_dist))
+		    distance_t candidate_dist_i8 = compute_distance_from_query_i8_ (context, neighbor_id);
+		    if (!should_recheck_candidate_fp32_ (candidate_dist_i8, closest_dist))
 		      {
 			continue;
 		      }
@@ -684,8 +695,8 @@ namespace cubhnsw
 		    neigh.push_back (neighbor_id);
 		    stats.on_neighbor_scan ();
 
-		    distance_t candidate_dist_fp16 = compute_distance_from_query_fp16_ (context, neighbor_id);
-		    if (!should_recheck_candidate_fp32_ (candidate_dist_fp16, closest_dist))
+		    distance_t candidate_dist_i8 = compute_distance_from_query_i8_ (context, neighbor_id);
+		    if (!should_recheck_candidate_fp32_ (candidate_dist_i8, closest_dist))
 		      {
 			continue;
 		      }
