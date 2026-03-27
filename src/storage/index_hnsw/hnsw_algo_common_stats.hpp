@@ -38,6 +38,7 @@ namespace cubhnsw
     // ===========================
     std::size_t visited_nodes {};
     std::size_t computed_distances {};
+    std::size_t computed_distances_int8 {};
     std::size_t computed_distances_in_refines {};
     std::size_t computed_distances_in_reverse_refines {};
 
@@ -58,6 +59,7 @@ namespace cubhnsw
     // ===========================
     std::size_t visited_nodes_l0 {};
     std::size_t computed_distances_l0 {};
+    std::size_t computed_distances_int8_l0 {};
     std::size_t computed_distances_in_refines_l0 {};
     std::size_t computed_distances_in_reverse_refines_l0 {};
 
@@ -227,12 +229,14 @@ namespace cubhnsw
 
       add_stat_if_positive (PSTAT_HNSW_NUM_VISITED_NODE, visited_nodes);
       add_stat_if_positive (PSTAT_HNSW_NUM_COMPUTED_DISTANCES, computed_distances);
+      add_stat_if_positive (PSTAT_HNSW_NUM_COMPUTED_DISTANCES_INT8, computed_distances_int8);
       add_stat_if_positive (PSTAT_HNSW_NUM_COMPUTED_DISTANCES_IN_REFINES, computed_distances_in_refines);
       add_stat_if_positive (PSTAT_HNSW_NUM_COMPUTED_DISTANCES_IN_REVERSE_REFINES,
 			    computed_distances_in_reverse_refines);
 
       add_stat_if_positive (PSTAT_HNSW_NUM_VISITED_NODE_L0, visited_nodes_l0);
       add_stat_if_positive (PSTAT_HNSW_NUM_COMPUTED_DISTANCES_L0, computed_distances_l0);
+      add_stat_if_positive (PSTAT_HNSW_NUM_COMPUTED_DISTANCES_INT8_L0, computed_distances_int8_l0);
       add_stat_if_positive (PSTAT_HNSW_NUM_COMPUTED_DISTANCES_IN_REFINES_L0,
 			    computed_distances_in_refines_l0);
       add_stat_if_positive (PSTAT_HNSW_NUM_COMPUTED_DISTANCES_IN_REVERSE_REFINES_L0,
@@ -270,9 +274,13 @@ namespace cubhnsw
       is_perf_tracking = false;
     }
 
-    inline void on_distance_computed (bool is_perf_tracking, std::int16_t level)
+    inline void on_distance_computed (bool is_perf_tracking, std::int16_t level, bool is_int8 = false)
     {
       add_stat (is_perf_tracking, level, computed_distances, computed_distances_l0, 1);
+      if (is_int8)
+	{
+	  add_stat (is_perf_tracking, level, computed_distances_int8, computed_distances_int8_l0, 1);
+	}
     }
 
     inline void on_entrypoint_updated (bool is_perf_tracking)

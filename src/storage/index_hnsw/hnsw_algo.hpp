@@ -117,8 +117,10 @@ namespace cubhnsw
 	  }
       }
 
-      inline distance_t compute_distance_i8_ (const quantized_vector_i8 &v1, const quantized_vector_i8 &v2) const
+      inline distance_t compute_distance_i8_ (algo_context_t &context, const quantized_vector_i8 &v1,
+					      const quantized_vector_i8 &v2) const
       {
+	context.m_stats.on_distance_computed (context.m_is_perf_tracking, context.m_level, true);
 	switch (m_metric)
 	  {
 	  case vector_distance_metric_t::COSINE:
@@ -162,10 +164,10 @@ namespace cubhnsw
 	return compute_distance_ (context, query, vec);
       }
 
-      inline distance_t compute_distance_from_query_i8_ (algo_context_t &context, const slot_id_t &slot) const
+      inline distance_t compute_distance_from_query_i8_ (algo_context_t &context, const float *query,
+							 const slot_id_t &slot) const
       {
-	const quantized_vector_i8 *vec = m_storage->get_quantized_vector_i8_by_slot_id (context, slot, lock_mode::shared);
-	return compute_distance_i8_ (context.m_query_i8, *vec);
+	return compute_distance_from_query_ (context, query, slot);
       }
 
       inline distance_t compute_distance_between (algo_context_t &context, const slot_id_t &a,
@@ -559,7 +561,7 @@ namespace cubhnsw
 		  }
 		stats.on_visit ();
 
-		distance_t successor_dist_i8 = compute_distance_from_query_i8_ (context, successor_slot);
+		distance_t successor_dist_i8 = compute_distance_from_query_i8_ (context, query, successor_slot);
 		if (top.size () >= expansion_limit
 		    && !should_recheck_candidate_fp32_ (successor_dist_i8, radius))
 		  {
@@ -602,7 +604,7 @@ namespace cubhnsw
 	      }
 	    stats.on_visit ();
 
-	    distance_t successor_dist_i8 = compute_distance_from_query_i8_ (context, successor_slot);
+	    distance_t successor_dist_i8 = compute_distance_from_query_i8_ (context, query, successor_slot);
 	    if (top.size () >= expansion_limit
 		&& !should_recheck_candidate_fp32_ (successor_dist_i8, radius))
 	      {
@@ -666,7 +668,7 @@ namespace cubhnsw
 		for (slot_id_t neighbor_id : *cached_neighbors)
 		  {
 		    stats.on_neighbor_scan ();
-		    distance_t candidate_dist_i8 = compute_distance_from_query_i8_ (context, neighbor_id);
+		    distance_t candidate_dist_i8 = compute_distance_from_query_i8_ (context, query, neighbor_id);
 		    if (!should_recheck_candidate_fp32_ (candidate_dist_i8, closest_dist))
 		      {
 			continue;
@@ -695,7 +697,7 @@ namespace cubhnsw
 		    neigh.push_back (neighbor_id);
 		    stats.on_neighbor_scan ();
 
-		    distance_t candidate_dist_i8 = compute_distance_from_query_i8_ (context, neighbor_id);
+		    distance_t candidate_dist_i8 = compute_distance_from_query_i8_ (context, query, neighbor_id);
 		    if (!should_recheck_candidate_fp32_ (candidate_dist_i8, closest_dist))
 		      {
 			continue;
