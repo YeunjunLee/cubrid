@@ -21,6 +21,10 @@
 #include <cmath>
 #include <algorithm>
 #include <omp.h>
+#if defined(__AVX2__)
+#include <immintrin.h>
+#endif
+
 
 #include "porting_inline.hpp"
 
@@ -31,30 +35,76 @@ namespace cubhnsw
 {
   namespace
   {
+#if defined(__AVX2__)
+    STATIC_INLINE std::int32_t __attribute__ ((ALWAYS_INLINE))
+    cubvec_hsum_epi32_avx2 (__m256i v)
+    {
+      const __m128i lo = _mm256_castsi256_si128 (v);
+      const __m128i hi = _mm256_extracti128_si256 (v, 1);
+      __m128i sum = _mm_add_epi32 (lo, hi);
+      sum = _mm_hadd_epi32 (sum, sum);
+      sum = _mm_hadd_epi32 (sum, sum);
+      return _mm_cvtsi128_si32 (sum);
+    }
+
+    STATIC_INLINE distance_t __attribute__ ((ALWAYS_INLINE))
+    cubvec_inner_product_distance_int8_avx2 (const std::int8_t *vec1, float scale1,
+					      const std::int8_t *vec2, float scale2, std::size_t dim)
+    {
+      std::size_t i = 0;
+      __m256i acc32 = _mm256_setzero_si256 ();
+      const __m256i ones16 = _mm256_set1_epi16 (1);
+
+      for (; i + 31 < dim; i += 32)
+	{
+	  const __m256i va = _mm256_loadu_si256 (reinterpret_cast<const __m256i *> (vec1 + i));
+	  const __m256i vb = _mm256_loadu_si256 (reinterpret_cast<const __m256i *> (vec2 + i));
+
+	  const __m256i va_lo_16 = _mm256_cvtepi8_epi16 (_mm256_castsi256_si128 (va));
+	  const __m256i vb_lo_16 = _mm256_cvtepi8_epi16 (_mm256_castsi256_si128 (vb));
+	  const __m256i prod_lo_16 = _mm256_mullo_epi16 (va_lo_16, vb_lo_16);
+	  acc32 = _mm256_add_epi32 (acc32, _mm256_madd_epi16 (prod_lo_16, ones16));
+
+	  const __m256i va_hi_16 = _mm256_cvtepi8_epi16 (_mm256_extracti128_si256 (va, 1));
+	  const __m256i vb_hi_16 = _mm256_cvtepi8_epi16 (_mm256_extracti128_si256 (vb, 1));
+	  const __m256i prod_hi_16 = _mm256_mullo_epi16 (va_hi_16, vb_hi_16);
+	  acc32 = _mm256_add_epi32 (acc32, _mm256_madd_epi16 (prod_hi_16, ones16));
+	}
+
+      std::int32_t sum = cubvec_hsum_epi32_avx2 (acc32);
+      for (; i < dim; ++i)
+	{
+	  sum += static_cast<std::int32_t> (vec1[i]) * static_cast<std::int32_t> (vec2[i]);
+	}
+
+      return static_cast<float> (sum) * scale1 * scale2;
+    }
+#endif
+
     STATIC_INLINE distance_t __attribute__ ((ALWAYS_INLINE))
     cubvec_inner_product_distance_int8_batch4 (const std::int8_t *vec1, float scale1,
 					       const std::int8_t *vec2, float scale2, std::size_t dim)
     {
-      int sum0 = 0;
-      int sum1 = 0;
-      int sum2 = 0;
-      int sum3 = 0;
+      std::int32_t sum0 = 0;
+      std::int32_t sum1 = 0;
+      std::int32_t sum2 = 0;
+      std::int32_t sum3 = 0;
 
       const std::size_t batch_end = dim - (dim % 4);
       #pragma omp simd reduction(+ : sum0, sum1, sum2, sum3)
       for (std::size_t i = 0; i < batch_end; i += 4)
 	{
-	  sum0 += static_cast<int> (vec1[i]) * static_cast<int> (vec2[i]);
-	  sum1 += static_cast<int> (vec1[i + 1]) * static_cast<int> (vec2[i + 1]);
-	  sum2 += static_cast<int> (vec1[i + 2]) * static_cast<int> (vec2[i + 2]);
-	  sum3 += static_cast<int> (vec1[i + 3]) * static_cast<int> (vec2[i + 3]);
+    sum0 += static_cast<std::int32_t> (vec1[i]) * static_cast<std::int32_t> (vec2[i]);
+    sum1 += static_cast<std::int32_t> (vec1[i + 1]) * static_cast<std::int32_t> (vec2[i + 1]);
+    sum2 += static_cast<std::int32_t> (vec1[i + 2]) * static_cast<std::int32_t> (vec2[i + 2]);
+    sum3 += static_cast<std::int32_t> (vec1[i + 3]) * static_cast<std::int32_t> (vec2[i + 3]);
 	}
 
-      int sum = sum0 + sum1 + sum2 + sum3;
+      std::int32_t sum = sum0 + sum1 + sum2 + sum3;
       #pragma omp simd reduction(+ : sum)
       for (std::size_t i = batch_end; i < dim; ++i)
 	{
-	  sum += static_cast<int> (vec1[i]) * static_cast<int> (vec2[i]);
+    sum += static_cast<std::int32_t> (vec1[i]) * static_cast<std::int32_t> (vec2[i]);
 	}
 
       return static_cast<float> (sum) * scale1 * scale2;
@@ -141,7 +191,11 @@ namespace cubhnsw
   cubvec_inner_product_distance_int8 (const std::int8_t *vec1, float scale1,
 				      const std::int8_t *vec2, float scale2, std::size_t dim)
   {
+#if defined(__AVX2__)
+    return cubvec_inner_product_distance_int8_avx2 (vec1, scale1, vec2, scale2, dim);
+#else
     return cubvec_inner_product_distance_int8_batch4 (vec1, scale1, vec2, scale2, dim);
+#endif
   }
 
   STATIC_INLINE distance_t __attribute__ ((ALWAYS_INLINE))
@@ -171,6 +225,15 @@ namespace cubhnsw
     cubvec_cosine_distance,
     cubvec_l2_distance,
     cubvec_inner_product_distance
+  };
+
+  const std::array<distance_i8_fn_t,
+	static_cast<std::size_t> (vector_distance_metric_t::MAX)>
+	metric_table_i8 =
+  {
+    cubvec_cosine_distance_int8,
+    cubvec_l2_distance_int8,
+    cubvec_inner_product_distance_int8
   };
 
 } // namespace cubhnsw

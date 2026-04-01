@@ -213,8 +213,8 @@ namespace cubhnsw
     m_neighbors_cache[key] = neighbors;
   }
 
-  const float *
-  storage::get_vector_by_slot_id (algo_context_t &context, const slot_id_t &slot, const lock_mode &mode)
+  const cached_vector *
+  storage::get_cached_vector_by_slot_id (algo_context_t &context, const slot_id_t &slot, const lock_mode &mode)
   {
     context.m_stats.on_vector_access (context.m_is_perf_tracking, context.m_level);
 
@@ -222,7 +222,7 @@ namespace cubhnsw
     if (it != m_vector_cache.end ())
       {
 	context.m_stats.on_vector_cache_hit (context.m_is_perf_tracking, context.m_level);
-	return it->second.data ();
+	return &it->second;
       }
 
     context.m_stats.on_vector_cache_miss (context.m_is_perf_tracking, context.m_level);
@@ -231,40 +231,42 @@ namespace cubhnsw
     node_t node { reinterpret_cast<byte_t *> (node_blk->data) };
     const float *vec = node.get_vector ();
 
-    std::vector<float> &cached = m_vector_cache[slot];
-    cached.assign (vec, vec + get_dimension ());
+    auto [cache_it, inserted] = m_vector_cache.try_emplace (slot);
+    (void) inserted;
+    cached_vector &cached = cache_it->second;
+    cached.values.assign (vec, vec + get_dimension ());
 
-    return cached.data ();
+    float max_abs = 0.0f;
+    for (float value : cached.values)
+      {
+	max_abs = std::max (max_abs, std::fabs (value));
+      }
+
+    cached.values_i8.scale = (max_abs > 0.0f) ? max_abs / 127.0f : 1.0f;
+    cached.values_i8.values.resize (get_dimension ());
+    for (std::size_t i = 0; i < get_dimension (); ++i)
+      {
+	const float scaled = cached.values[i] / cached.values_i8.scale;
+	const float rounded = std::round (scaled);
+	const float clamped = std::max (-127.0f, std::min (127.0f, rounded));
+	cached.values_i8.values[i] = static_cast<std::int8_t> (clamped);
+      }
+
+    return &cached;
+  }
+
+  const float *
+  storage::get_vector_by_slot_id (algo_context_t &context, const slot_id_t &slot, const lock_mode &mode)
+  {
+    const cached_vector *cached = get_cached_vector_by_slot_id (context, slot, mode);
+    return cached->values.data ();
   }
 
   const quantized_vector_i8 *
   storage::get_quantized_vector_i8_by_slot_id (algo_context_t &context, const slot_id_t &slot, const lock_mode &mode)
   {
-    auto it = m_vector_cache_i8.find (slot);
-    if (it != m_vector_cache_i8.end ())
-      {
-	return &it->second;
-      }
-
-    const float *vec = get_vector_by_slot_id (context, slot, mode);
-    float max_abs = 0.0f;
-    for (std::size_t i = 0; i < get_dimension (); ++i)
-      {
-	max_abs = std::max (max_abs, std::fabs (vec[i]));
-      }
-
-    quantized_vector_i8 &cached = m_vector_cache_i8[slot];
-    cached.scale = (max_abs > 0.0f) ? max_abs / 127.0f : 1.0f;
-    cached.values.resize (get_dimension ());
-    for (std::size_t i = 0; i < get_dimension (); ++i)
-      {
-	const float scaled = vec[i] / cached.scale;
-	const float rounded = std::round (scaled);
-	const float clamped = std::max (-127.0f, std::min (127.0f, rounded));
-	cached.values[i] = static_cast<std::int8_t> (clamped);
-      }
-
-    return &cached;
+    const cached_vector *cached = get_cached_vector_by_slot_id (context, slot, mode);
+    return &cached->values_i8;
   }
 
   // promote lockmode from shared to exclusive

@@ -242,6 +242,8 @@ namespace cubhnsw
       pinned_t get_root (algo_context_t &context, lock_mode mode);
       pinned_t get_node_by_slot_id (algo_context_t &context, const slot_id_t &slot_id,
 				    const lock_mode &mode);
+      const cached_vector *get_cached_vector_by_slot_id (algo_context_t &context, const slot_id_t &slot_id,
+							 const lock_mode &mode);
       const float *get_vector_by_slot_id (algo_context_t &context, const slot_id_t &slot_id,
 					  const lock_mode &mode);
       const quantized_vector_i8 *get_quantized_vector_i8_by_slot_id (algo_context_t &context,
@@ -316,8 +318,7 @@ namespace cubhnsw
       block_id_t m_last_node_vpid;
       bool m_is_empty = true;
 
-      vector_cache_t m_vector_cache;  // (slot_id_t, vector) cache
-      vector_cache_i8_t m_vector_cache_i8;  // (slot_id_t, int8 vector) cache
+      vector_cache_t m_vector_cache;  // (slot_id_t, {vector, int8 vector}) cache
 
       /* TODO: This is not thread-safe. Currently, we are assuming single-threaded access, but we need to make it thread-safe. */
       neighbors_cache_t m_neighbors_cache;    // (slot_id_t, level) -> neighbors

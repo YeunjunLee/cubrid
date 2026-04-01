@@ -97,25 +97,24 @@ namespace cubhnsw
 
   using visited_set_t = visit_set_helper::type;
 
+  struct quantized_vector_i8
+  {
+    std::vector<std::int8_t> values;
+    float scale {1.0f};
+  };
+
+  struct cached_vector
+  {
+    std::vector<float> values;
+    quantized_vector_i8 values_i8;
+  };
+
   struct vector_cache_helper
   {
-    using type = ankerl::unordered_dense::map<OID, std::vector<float>, oid_hash, oid_equal>;
+    using type = ankerl::unordered_dense::map<OID, cached_vector, oid_hash, oid_equal>;
   };
 
   using vector_cache_t = vector_cache_helper::type;
-
-  struct quantized_vector_i8
-  {
-    float scale {1.0f};
-    std::vector<std::int8_t> values;
-  };
-
-  struct vector_cache_i8_helper
-  {
-    using type = ankerl::unordered_dense::map<OID, quantized_vector_i8, oid_hash, oid_equal>;
-  };
-
-  using vector_cache_i8_t = vector_cache_i8_helper::type;
 
   struct neighbors_key
   {
