@@ -485,14 +485,29 @@ set(STORAGE_HEADERS
 
 if(USE_SIMD_NATIVE)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set_source_files_properties(${QUERY_DIR}/vector_opfunc.cpp ${INDEX_HNSW_DIR}/vector_distance_omp_simd.cpp
+    set_source_files_properties(${QUERY_DIR}/vector_opfunc.cpp
         PROPERTIES COMPILE_OPTIONS "-march=native;-O3;-ftree-vectorize;-mprefer-vector-width=512;-fopenmp-simd;-ffast-math;-fno-trapping-math;-funroll-loops;-fassociative-math;-fno-signed-zeros"
     )
+    set_source_files_properties(${INDEX_HNSW_DIR}/vector_distance_omp_simd.cpp
+        PROPERTIES COMPILE_OPTIONS "-march=native;-mavx2;-mfma;-O3;-ftree-vectorize;-mprefer-vector-width=512;-fopenmp-simd;-ffast-math;-fno-trapping-math;-funroll-loops;-fassociative-math;-fno-signed-zeros"
+    )
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    set_source_files_properties(${QUERY_DIR}/vector_opfunc.cpp ${INDEX_HNSW_DIR}/vector_distance_omp_simd.cpp
+    set_source_files_properties(${QUERY_DIR}/vector_opfunc.cpp
         PROPERTIES COMPILE_OPTIONS "-march=native;-O3;-fvectorize;-mprefer-vector-width=512;-fopenmp-simd;-ffast-math;-fno-trapping-math;-funroll-loops;-fassociative-math;-fno-signed-zeros"
     )
+    set_source_files_properties(${INDEX_HNSW_DIR}/vector_distance_omp_simd.cpp
+        PROPERTIES COMPILE_OPTIONS "-march=native;-mavx2;-mfma;-mf16c;-O3;-fvectorize;-mprefer-vector-width=512;-fopenmp-simd;-ffast-math;-fno-trapping-math;-funroll-loops;-fassociative-math;-fno-signed-zeros"
+    )
   endif()
+endif()
+
+# Always enable AVX2 for HNSW int8 distance kernel when compiler supports it.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set_property(SOURCE ${INDEX_HNSW_DIR}/vector_distance_omp_simd.cpp
+    APPEND PROPERTY COMPILE_OPTIONS "-mavx2;-mfma;-mf16c")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set_property(SOURCE ${INDEX_HNSW_DIR}/vector_distance_omp_simd.cpp
+    APPEND PROPERTY COMPILE_OPTIONS "-mavx2;-mfma;-mf16c")
 endif()
 
 set(SESSION_SOURCES
@@ -767,3 +782,17 @@ if(WIN32)
     FILES_MATCHING PATTERN "*.pdb"
     )
 endif(WIN32)
+
+# Excluded from build - benchmark only
+# if(UNIX)
+#   add_executable(bench_cosine_distance_simple
+#     ${INDEX_HNSW_DIR}/bench_cosine_distance_simple.cpp
+#   )
+#
+#   target_compile_features(bench_cosine_distance_simple PRIVATE cxx_std_17)
+#   target_compile_options(bench_cosine_distance_simple PRIVATE -O3 -fopenmp-simd)
+#
+#   if(USE_SIMD_NATIVE)
+#     target_compile_options(bench_cosine_distance_simple PRIVATE -march=native)
+#   endif()
+# endif(UNIX)
