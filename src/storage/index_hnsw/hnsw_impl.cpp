@@ -485,6 +485,12 @@ hnsw_impl::init_for_recovery ()
   return NO_ERROR;
 }
 
+int
+hnsw_impl::init_for_recovery ()
+{
+  return init_for_load ();
+}
+
 void
 hnsw_impl::init_worker_pool ()
 {
