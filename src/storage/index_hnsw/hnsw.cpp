@@ -1071,7 +1071,7 @@ int hnsw_index_manager::load_index (THREAD_ENTRY *thread_p, const BTID *btid, hn
 
 int
 hnsw_index_manager::load_or_create_index_for_recovery (THREAD_ENTRY *thread_p, const BTID *btid,
-    const hnsw_build_params &params,
+    const hnsw_build_params & /* params */,
     hnsw_index *&index_out)
 {
   index_out = get_index (btid);
@@ -1087,31 +1087,12 @@ hnsw_index_manager::load_or_create_index_for_recovery (THREAD_ENTRY *thread_p, c
       return ER_FAILED;
     }
 
-  std::string backend_id = backend->get_id ();
   if (log_is_in_crash_recovery ())
     {
-      index_out = backend->create_index (thread_p, btid, backend_id, params);
-      if (index_out == NULL)
-	{
-	  return ER_FAILED;
-	}
-
-      return add_index (btid, index_out);
+      return load_index (thread_p, btid, index_out);
     }
 
-  int error = load_index (thread_p, btid, index_out);
-  if (error == NO_ERROR)
-    {
-      return NO_ERROR;
-    }
-
-  index_out = backend->create_index (thread_p, btid, backend_id, params);
-  if (index_out == NULL)
-    {
-      return ER_FAILED;
-    }
-
-  return add_index (btid, index_out);
+  return load_index (thread_p, btid, index_out);
 }
 
 int hnsw_index_manager::delete_index_on_disk (THREAD_ENTRY *thread_p, const std::string &prefix, const BTID *btid)
